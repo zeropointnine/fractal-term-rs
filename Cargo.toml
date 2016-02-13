@@ -1,0 +1,10 @@
+[package]
+name = "hello-ascii-mandelbrot-rs"
+version = "0.1.0"
+authors = ["Lee Felarca <lee@felar.ca>"]
+
+[dependencies]
+num = "0.1.30"
+time = "0.1"
+rand = "*"
+rustbox = "*"
