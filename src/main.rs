@@ -4,7 +4,7 @@ mod ansi;
 mod animator;
 mod textrender;
 mod input;
-mod nummap;
+mod matrix;
 mod complex;
 mod mandelbrot;
 mod viewport;
@@ -157,5 +157,5 @@ fn main() {
     
     // exit program 
     let _ = handle.join();
-	print!("{}", ansi::CLEAR);
+	println!("");
 }

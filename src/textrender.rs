@@ -1,5 +1,5 @@
 use ansi;
-use nummap::NumMap;
+use matrix::Matrix;
 
 
 pub struct TextRender {
@@ -30,7 +30,7 @@ impl TextRender {
         print!("{}", ansi::CLEAR);
     }
 
-    pub fn render(&self, nummap: &mut NumMap<u16>) {
+    pub fn render(&self, nummap: &mut Matrix<u16>) {
 
         if false {
             println!("{:?}\n", nummap);

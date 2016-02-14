@@ -5,7 +5,7 @@ use animator::{Spec, Animator};
 use input::Command;
 use viewport::Viewport;
 use textrender::TextRender;
-use nummap::NumMap;
+use matrix::Matrix;
 use mandelbrot;
 use mandelbrot::Mandelbrot;
 
@@ -22,7 +22,7 @@ const FRICTION: f64 = 0.95;
 
 pub struct App {
 	
-    nummap: NumMap<u16>,
+    matrix: Matrix<u16>,
     textrender: TextRender,
     mandelbrot: Mandelbrot,
 	
@@ -43,7 +43,7 @@ impl App {
 	    let max_escape = mandelbrot::DEFAULT_MAX_ESCAPE;
 		
 		App {
-		    nummap: NumMap::new(view_width as usize, view_height as usize),
+		    matrix: Matrix::new(view_width as usize, view_height as usize),
 		    textrender: TextRender::new(view_width as i32, view_height as i32, max_escape),
 		    mandelbrot: Mandelbrot::new(CHARACTER_ASPECT_RATIO),
 		    
@@ -132,12 +132,11 @@ impl App {
 	}
 	
 	pub fn calculate(&mut self) {
-        self.mandelbrot.write_matrix_mt(
-        	&self.vp_center_anim.value, self.vp_width_anim.value, self.nummap.vec());
+        self.mandelbrot.write_matrix(self.vp_center_anim.value.clone(), self.vp_width_anim.value, &mut self.matrix);
 	}
 	
 	pub fn render(&mut self) {
         // TODO: the mutability cascades from here down to textrender.render, and it's all incorrect
-        self.textrender.render(&mut self.nummap);
+        self.textrender.render(&mut self.matrix);
 	}
 }

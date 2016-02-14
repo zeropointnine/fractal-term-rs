@@ -1,4 +1,4 @@
-// Contains a 2-dimensional matrix of numbers used for the Mandelbrot map data
+// Wrapper for a 2D matrix of values used for the Mandelbrot map data
 
 // TODO: Consider trying 1-dimensional structure
 //       This might make it more viable to do mem copy type operations, which could interesting to try...
@@ -6,14 +6,15 @@
 use std::fmt;
 
 
-pub struct NumMap<T> {
+#[derive(Clone)]
+pub struct Matrix<T> {
 	vec: Vec<Vec<T>>  
 }
 
 
-impl<T:Clone + Default> NumMap<T> {
+impl<T:Clone + Default> Matrix<T> {
 
-	pub fn new(width: usize, height: usize) -> NumMap<T> {
+	pub fn new(width: usize, height: usize) -> Matrix<T> {
 
 		assert!(width > 0 && height > 0);
 
@@ -24,17 +25,47 @@ impl<T:Clone + Default> NumMap<T> {
 			vec.push(v);
 		}
 
-		NumMap { vec: vec }
+		Matrix { vec: vec }
 	}
 
 	// rem, the first dimension is the row index (y), the second dimension is the column index (x)
 	pub fn vec(&mut self) -> &mut Vec<Vec<T>> {
 		&mut self.vec
 	}
+	
+	pub fn width(&self) -> usize {
+		self.vec[0].len()
+	}
+	pub fn height(&self) -> usize {
+		self.vec.len()
+	}
+	pub fn get(&self, x: usize, y: usize) -> T {
+		let row = &self.vec[y];
+		row[x].clone()
+	}
+	pub fn set(&mut self, x: usize, y: usize, value:T) {
+		self.vec[y][x] = value;
+	}
+	
+	pub fn get_row(&self, y:usize) -> &Vec<T> {
+		&self.vec[y]
+	}
+	
+	/**
+	 * Writes the full contents of 'src' into self starting at index 'start'
+	 */
+	pub fn copy_from(&mut self, src: &Matrix<T>, start: usize) {
+		for src_y in 0..src.height() {
+			let self_y = start + src_y;
+			for x in 0..src.width() {
+				self.set(x, self_y, src.get(x, src_y).clone());
+			}
+		}
+	}
 }
 
 
-impl<T: fmt::Display> fmt::Debug for NumMap<T>  {
+impl<T: fmt::Display> fmt::Debug for Matrix<T>  {
 
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 
@@ -52,3 +83,4 @@ impl<T: fmt::Display> fmt::Debug for NumMap<T>  {
     	write!(f, "{}", string)
     }
 }
+
