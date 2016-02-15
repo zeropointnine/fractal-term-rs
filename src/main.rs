@@ -20,6 +20,7 @@ use input::Command;
 use app::App;
 
 
+
 // NB, a given terminal implementation may not be able to show every frame at this framerate :)
 const TARGET_FPS: i32 = 60; 
 
@@ -88,6 +89,8 @@ fn main() {
     let _ = handle.join();
 	println!("");
 } 
+
+// ---
 
 struct Timing {
 

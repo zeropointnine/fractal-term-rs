@@ -25,7 +25,7 @@
 //! Utility Class providing 2 dimensional vectors for i32, u32, and f64.
 
 // Lee: Changed f32 to f64
-// 		Added static len() method
+// 		Added static len() method; rotate() method
 
 use std::ops::{Add, Sub, Mul, Div};
 
@@ -57,6 +57,18 @@ impl<T> Vector2<T> {
     
     pub fn len(ref v: Vector2<f64>) -> f64 {
     	(v.x * v.x + v.y * v.y).sqrt()
+    }
+    
+    pub fn rotate_around(ref point: Vector2<f64>, ref center:Vector2<f64>, theta: f64) -> Vector2<f64> {
+    	let x = center.x + (point.x - center.x) * theta.cos() - (point.y - center.y) * theta.sin();
+		let y = center.y + (point.x - center.x) * theta.sin() + (point.y - center.y) * theta.cos();
+		Vector2::new(x, y)
+    }
+
+    pub fn rotate(ref point: Vector2<f64>, theta: f64) -> Vector2<f64> {
+    	let x = point.x * theta.cos() - point.y * theta.sin();
+		let y = point.x * theta.sin() + point.y * theta.cos();
+		Vector2::new(x, y)
     }
 }
 

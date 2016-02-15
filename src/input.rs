@@ -48,6 +48,7 @@ pub enum Command {
     PositionTween(i32, i32),
     Zoom(f64),
     ZoomContinuous(f64),
+    RotationVelocity(f64),
     Resize(usize, usize),
     Help, Stop, Reset, Quit, 
     None  
@@ -72,6 +73,9 @@ impl Command {
                     Key::Char('z') | Key::Char('-') => Command::Zoom(1.0),
 					Key::Char('Z') | Key::Char('_') => Command::ZoomContinuous(0.5),
                     
+                    Key::Char('[') | Key::Char('{') => Command::RotationVelocity(1.0),
+                    Key::Char(']') | Key::Char('}') => Command::RotationVelocity(-1.0),
+
                     Key::Char('/') | Key::Char('?') | Key::Char('h') | Key::Char('H') => Command::Help,
                     Key::Char(' ') => Command::Stop,
                     Key::Char('r') => Command::Reset,

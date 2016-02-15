@@ -1,16 +1,18 @@
 extern crate rustbox;
+use std;
 use vector2::Vector2f;
 use animator::{Spec, Animator};
 use input::Command;
 use textrenderer::{TextRenderer, Asciifier};
-use ansi;
 use matrix::Matrix;
 use mandelbrot;
 use mandelbrot::Mandelbrot;
 
 pub const CHARACTER_ASPECT_RATIO: f64 = 0.4;  // rough estimate of character aspect ratio    
+const DEG: f64 = std::f64::consts::PI / 180.0;
 const ZOOM_INCREMENT: f64 = 0.015;
 const VELOCITY_RATIO_INCREMENT: f64 = 0.005;
+const ROTATION_VELOCITY_INCREMENT: f64 = 1.0 * DEG;
 const TWEEN_MULTIPLIER: f64 = 0.08;
 const FRICTION: f64 = 0.95;
 static HELP_TEXT: &'static str = include_str!("help.txt");
@@ -26,6 +28,7 @@ pub struct App<'a> {
     mandelbrot: Mandelbrot,
 	vp_center_anim: Animator<Vector2f>,
 	vp_width_anim: Animator<f64>,
+	vp_rotation_anim: Animator<f64>,
 
 	view_width: usize,  // TODO: make 'pub fn set_dimensions(w: u16, h:16)'
 	view_height: usize,
@@ -50,14 +53,16 @@ impl<'a> App<'a> {
 		    renderer: TextRenderer::new(view_width, view_height),
 		    asciifier: Asciifier::new(max_esc as f64),
 		    
-		    mandelbrot: Mandelbrot::new(CHARACTER_ASPECT_RATIO),
+		    mandelbrot: Mandelbrot::new(CHARACTER_ASPECT_RATIO, true),
 			vp_center_anim: Animator { value: Vector2f { x: 0.0, y: 0.0 }, spec: Spec::None },
-			vp_width_anim: Animator { value: mandelbrot::DEFAULT_WIDTH, spec: Spec::None }, 
+			vp_width_anim: Animator { value: mandelbrot::DEFAULT_WIDTH, spec: Spec::None },
+			vp_rotation_anim: Animator { value: 0.0, spec: Spec::Velocity { velocity: 0.0, friction: FRICTION } },
 			
 			view_width: view_width,
 			view_height: view_height,
 			max_escape: max_esc,
 			count: 0,
+
 			help_text: HELP_TEXT.lines().collect(),
 			should_show_help: false,
 			has_shown_help: false,
@@ -113,6 +118,16 @@ impl<'a> App<'a> {
 				let increment = ZOOM_INCREMENT * multiplier;
 				self.vp_width_anim.spec = Spec::Scale { scale: increment, friction: 1.0 };
 			},
+			
+			Command::RotationVelocity(multiplier) => {
+				let increment = ROTATION_VELOCITY_INCREMENT * multiplier;
+				match self.vp_rotation_anim.spec {
+					Spec::Velocity { ref mut velocity, .. } => {
+						*velocity = *velocity + increment;
+					},
+					_ => {},
+				}
+			}
 
 			Command::Resize(w, h) => {
 				self.size(w, h);
@@ -150,11 +165,15 @@ impl<'a> App<'a> {
 	
 	pub fn update(&mut self) {
 		self.vp_width_anim.update();
+		self.vp_rotation_anim.update();
+
 		self.vp_center_anim.update();
 	}
 	
 	pub fn calculate(&mut self) {
-        self.mandelbrot.write_matrix(self.vp_center_anim.value.clone(), self.vp_width_anim.value, &mut self.matrix);
+        self.mandelbrot.write_matrix(self.
+        		vp_center_anim.value.clone(), self.vp_width_anim.value, self.vp_rotation_anim.value, 
+        		&mut self.matrix);
 	}
 	
 	pub fn draw_frame(&mut self, debug_info: &String) {

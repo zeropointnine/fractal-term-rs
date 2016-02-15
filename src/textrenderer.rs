@@ -60,11 +60,20 @@ impl TextRenderer {
 		}
 		
 		// TODO: this doesn't belong here:
-		self.draw_string(&"Coordinates:".to_string(), x + 2, y - 5);
-		let s = format!("{},", pos.x);
-		self.draw_string(&s, x + 5, y - 3);
-		let s = format!("{}", pos.y);
-		self.draw_string(&s, x + 5, y - 2);
+		let mut s = format!("{:.*}", 17, pos.x);
+		if pos.x >= 0.0 {
+			s = "x  ".to_string() + &s;
+		} else {
+			s = "x ".to_string() + &s;
+		}
+		self.draw_string(&s, x + 4, y - 3);
+		let mut s = format!("{:.*}", 17, pos.y);
+		if pos.y >= 0.0 {
+			s = "y  ".to_string() + &s;
+		} else {
+			s = "y ".to_string() + &s;
+		}
+		self.draw_string(&s, x + 4, y - 2);
 	}
 
 	/**
