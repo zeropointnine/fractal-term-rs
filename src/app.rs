@@ -3,7 +3,6 @@ extern crate rustbox;
 use vector2::Vector2f;
 use animator::{Spec, Animator};
 use input::Command;
-use viewport::Viewport;
 use textprinter::{TextPrinter, Asciifier};
 use matrix::Matrix;
 use mandelbrot;
@@ -109,6 +108,10 @@ impl App {
 				let increment = ZOOM_INCREMENT * multiplier;
 				self.vp_width_anim.spec = Spec::Scale { scale: increment, friction: 1.0 };
 			},
+
+			Command::Resize(w, h) => {
+				// TODO
+			}
 						
 			Command::Stop => { 
 				self.vp_center_anim.spec = Spec::None;

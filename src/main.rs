@@ -7,7 +7,6 @@ mod input;
 mod matrix;
 mod complex;
 mod mandelbrot;
-mod viewport;
 mod app;
 
 extern crate time;
@@ -46,10 +45,9 @@ fn main() {
 
 	let command = Command::None; 
     let wrapped_command = Arc::new(Mutex::new(command));
-	// -----------------------------------------------------------    
-	// START THE INPUT THREAD
-	let handle = input::ThreadLooper::go(wrapped_command.clone());
-	// -----------------------------------------------------------
+
+	let handle = input::launch_thread(wrapped_command.clone());
+
     let wrapped_command = wrapped_command.clone();  // for use by main thread
 
 	let mut app = App::new(screen_width, screen_height);
