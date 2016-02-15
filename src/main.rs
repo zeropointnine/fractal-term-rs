@@ -2,7 +2,7 @@ mod vector2;
 mod math;
 mod ansi;
 mod animator;
-mod textrender;
+mod textprinter;
 mod input;
 mod matrix;
 mod complex;
@@ -16,41 +16,32 @@ extern crate rustbox;
 
 use std::thread;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use time::PreciseTime;
 use input::Command;
 use app::App;
 
+// a given terminal will probably NOT be able to show every frame at this framerate :)
+const TARGET_FPS: i32 = 60; 
 
-const SHOW_DEBUG_INFO:bool = true;
-
-
+/**
+ * Manages the main render loop, and handing off 'commands' from the 'user-input' thread 
+ */
 fn main() {
 
-    // debug-related 
-    let mut frame_num = 0;
-    let mut fps_timestamp = PreciseTime::now();
-    let mut cum_calc_duration:i64 = 0;  
-    let mut cum_render_duration:i64 = 0; 
-    let mut frame_start_time:PreciseTime;
-    let mut avg_fps:f64 = 0.0;
-    let mut avg_calc_time:f64 = 0.0;
-    let mut avg_render_time:f64 = 0.0;
-    let mut message = "".to_string();
-
-    let update_interval = 16_000i64;
+	let mut timing = Timing::new(TARGET_FPS);
 
 	// use rustbox just long enough to get terminal dimensions
-	let screen_width: u16;
-	let screen_height: u16;
+	let screen_width: usize;
+	let screen_height: usize;
     {
     	let opts = rustbox::InitOptions { input_mode: rustbox::InputMode::AltMouse, buffer_stderr: false };
         let rustbox = match rustbox::RustBox::init(opts) {
             Result::Ok(v) => v,
             Result::Err(e) => panic!("{}", e),
         };
-        screen_width = rustbox.width() as u16;
-        screen_height = rustbox.height() as u16;
-		// println!("dimensions: {}x{}", view_width, view_height);
+        screen_width = rustbox.width();
+        screen_height = rustbox.height();
     }
 
 	let command = Command::None; 
@@ -65,10 +56,10 @@ fn main() {
 
     loop {
 
-        frame_start_time = PreciseTime::now();
+        timing.frame_start();
 
 		let mut should_refresh = false;
-		if frame_num <= 1 {
+		if timing.frame_num <= 1 {
 			should_refresh = true;
 		}
 
@@ -89,73 +80,123 @@ fn main() {
 		}
 		
 		app.update();
-		
+
+		/*		
+		// TODO
 		if false &&  ! should_refresh {	
-			thread::sleep_ms((update_interval / 1000) as u32);
+			thread::sleep(Duration::new(0, INTERVAL));
 			continue;
 		}
+		*/
 
+		timing.calc_start();
 		app.calculate();
+        timing.calc_end();
 
-        let calc_end_time = PreciseTime::now();
+		timing.render_start();
+		app.draw_frame(&timing.averages_info);
+		timing.render_end();			
 
-		app.render();			
-
-        let render_end_time = PreciseTime::now();
-
-        // debug info  
-        let calc_time = frame_start_time.to(calc_end_time).num_microseconds().unwrap();
-        cum_calc_duration = cum_calc_duration + calc_time;
-        let render_time = calc_end_time.to(render_end_time).num_microseconds().unwrap();
-        cum_render_duration = cum_render_duration + render_time;
-        
-        frame_num = frame_num + 1;
-        if frame_num % 60 == 0 {
-            // calc fps
-            let usec = fps_timestamp.to(render_end_time).num_microseconds().unwrap();
-            let usec_per_frame = usec as f64 / 60.0;
-            avg_fps = 1.0 / (usec_per_frame as f64 / 1_000_000f64);
-            avg_calc_time = cum_calc_duration as f64  / 60.0;
-            avg_render_time = cum_render_duration as f64 / 60.0;
-
-            // reset values
-            fps_timestamp = PreciseTime::now();
-            cum_calc_duration = 0;
-            cum_render_duration = 0;
-        }
-        
-        let mut s = format!("{} {:.0}x ", 
-        	ansi::move_cursor((screen_height - 0) as i32, 1), app.get_magnification());
-        
-        if SHOW_DEBUG_INFO {
-        	let s2 = format!("{:.2}fps {:.0}μs + {:.0}μs {} {}",
-	            avg_fps, avg_calc_time, avg_render_time, frame_num, message);
-        	s = s + &s2;  
-        }
-        print!("{}", s);
-
-		/*        
-        if SHOW_DEBUG_INFO {
-        	let col =  (screen_width as i32) / 2  +  1;
-        	let row = (screen_height as i32) / 2  +  1;
-        	print!("{}█", ansi::move_cursor(row, col));
-        }
-        */
-
-		// sleep until time for next frame	
-		// TODO: sleep_ms is now deprecated
-        let dur = frame_start_time.to(PreciseTime::now()).num_microseconds().unwrap();
-        let mut sleep_time = update_interval - dur;  
-        // hand-wavy adjust for unaccounted-for overhead
-        sleep_time = sleep_time - 500;  
-        let mut sleep_time_ms = sleep_time / 1000;
-        if sleep_time_ms < 1 {
-            sleep_time_ms = 1;
-        }
-        thread::sleep_ms(sleep_time_ms as u32);
+		// sleep until time for next frame
+        thread::sleep(timing.get_sleep_duration());
 	}
     
     // exit program 
     let _ = handle.join();
 	println!("");
+} 
+
+struct Timing {
+
+	target_fps: i32,
+    
+    frame_start_time:PreciseTime,
+    calc_start_time:PreciseTime,
+    render_start_time:PreciseTime,
+
+    frame_num: i32,
+    averages_start_time: PreciseTime,
+
+    cum_calc_duration: i64,
+    cum_render_duration: i64, 
+    avg_fps: f64,
+    avg_calc_time: f64,
+    avg_render_time: f64,
+    averages_info: String,
+}
+
+impl Timing {
+	
+	pub fn new(target_fps: i32) -> Timing {
+		
+		Timing {
+			
+			target_fps: target_fps,
+			
+			frame_start_time: PreciseTime::now(),
+		    calc_start_time: PreciseTime::now(),
+		    render_start_time: PreciseTime::now(),
+
+			frame_num: -1,
+			averages_start_time: PreciseTime::now(),
+			
+			cum_calc_duration: 0,
+			cum_render_duration: 0,
+			avg_fps: 0.0,
+			avg_calc_time: 0.0,
+			avg_render_time: 0.0,
+			averages_info: "".to_string(),
+		}
+	}
+	
+	pub fn frame_start(&mut self) {
+
+		self.frame_start_time = PreciseTime::now();
+		
+        self.frame_num += 1;
+        if self.frame_num % self.target_fps == 0 {
+            let usec = self.averages_start_time.to(self.frame_start_time).num_microseconds().unwrap();
+            let usec_per_frame = usec as f64 / self.target_fps as f64;
+            self.avg_fps = 1.0 / (usec_per_frame as f64 / 1_000_000f64);
+            self.avg_calc_time = self.cum_calc_duration as f64  / self.target_fps as f64;
+            self.avg_render_time = self.cum_render_duration as f64 / self.target_fps as f64;
+			self.averages_info = format!("{:.2}fps {:.0}μs {:.0}μs", 
+	    		self.avg_fps, self.avg_calc_time, self.avg_render_time);
+
+            // reset values
+            self.averages_start_time = self.frame_start_time;
+            self.cum_calc_duration = 0;
+            self.cum_render_duration = 0;
+        }
+	}
+	
+	pub fn calc_start(&mut self) {
+		self.calc_start_time = PreciseTime::now();
+	}
+	pub fn calc_end(&mut self) {
+		let dur = self.calc_start_time.to(PreciseTime::now()).num_microseconds().unwrap();
+		self.cum_calc_duration += dur 
+	}
+	
+	pub fn render_start(&mut self) {
+		self.render_start_time = PreciseTime::now();
+	}
+	pub fn render_end(&mut self) {
+		let dur = self.render_start_time.to(PreciseTime::now()).num_microseconds().unwrap();
+		self.cum_render_duration += dur 
+	}
+	
+	/**
+	 * Calculate amount of time to sleep for program loop to update at the target_fps
+	 */
+	pub fn get_sleep_duration(&self) -> Duration {
+		
+		let interval: i32 = (1_000_000_000 / self.target_fps) as i32;
+        let elapsed: i32 = self.frame_start_time.to(PreciseTime::now()).num_nanoseconds().unwrap() as i32;
+        let mut duration: i32 = interval - elapsed - 1_000_000;  // vague adjustment for unknown overhead  
+        if duration < 0 {
+            duration = 0;
+        }
+        return Duration::new(0, duration as u32);
+	}
 }

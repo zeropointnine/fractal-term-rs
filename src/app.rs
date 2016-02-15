@@ -4,7 +4,7 @@ use vector2::Vector2f;
 use animator::{Spec, Animator};
 use input::Command;
 use viewport::Viewport;
-use textrender::TextRender;
+use textprinter::{TextPrinter, Asciifier};
 use matrix::Matrix;
 use mandelbrot;
 use mandelbrot::Mandelbrot;
@@ -23,39 +23,43 @@ const FRICTION: f64 = 0.95;
 pub struct App {
 	
     matrix: Matrix<u16>,
-    textrender: TextRender,
-    mandelbrot: Mandelbrot,
+    pub printer: TextPrinter,
+    asciifier: Asciifier,
 	
+    mandelbrot: Mandelbrot,
 	vp_center_anim: Animator<Vector2f>,
 	vp_width_anim: Animator<f64>,
 
-	view_width: u16,  // TODO: make 'pub fn set_dimensions(w: u16, h:16)'
-	view_height: u16,
-	
+	view_width: usize,  // TODO: make 'pub fn set_dimensions(w: u16, h:16)'
+	view_height: usize,
 	max_escape: u16,
+	
+	count: u32,
 }
 
 
 impl App {
 	
-	pub fn new(view_width: u16, view_height: u16) -> App {
+	pub fn new(view_width: usize, view_height: usize) -> App {
 		
-	    let max_escape = mandelbrot::DEFAULT_MAX_ESCAPE;
+	    let max_esc = mandelbrot::DEFAULT_MAX_ESCAPE;
 		
 		App {
-		    matrix: Matrix::new(view_width as usize, view_height as usize),
-		    textrender: TextRender::new(view_width as i32, view_height as i32, max_escape),
-		    mandelbrot: Mandelbrot::new(CHARACTER_ASPECT_RATIO),
+		    matrix: Matrix::new(view_width, view_height),
+		    printer: TextPrinter::new(view_width, view_height),
+		    asciifier: Asciifier::new(max_esc as f64),
 		    
+		    mandelbrot: Mandelbrot::new(CHARACTER_ASPECT_RATIO),
 			vp_center_anim: Animator { value: Vector2f { x: 0.0, y: 0.0 }, spec: Spec::None },
 			vp_width_anim: Animator { value: mandelbrot::DEFAULT_WIDTH, spec: Spec::None }, 
 			
 			view_width: view_width,
 			view_height: view_height,
-			max_escape: max_escape,
+			max_escape: max_esc,
+			count: 0
 		}
     }
-
+	
 	pub fn handle_command(&mut self, command: &Command) {
 
 		let vel_increment = self.vp_width_anim.value as f64 * VELOCITY_RATIO_INCREMENT;  // abstract this
@@ -135,8 +139,22 @@ impl App {
         self.mandelbrot.write_matrix(self.vp_center_anim.value.clone(), self.vp_width_anim.value, &mut self.matrix);
 	}
 	
-	pub fn render(&mut self) {
-        // TODO: the mutability cascades from here down to textrender.render, and it's all incorrect
-        self.textrender.render(&mut self.matrix);
+	pub fn draw_frame(&mut self, debug_info: &String) {
+        
+        self.printer.draw_ascii_rect(&self.matrix, &self.asciifier);
+    
+        let info = format!(" {:.0}x {}", self.get_magnification(), debug_info);    
+        self.printer.draw_string(&info, 1, self.view_height - 1);
+
+        if true && self.count % 60 < 15 {
+        	// show center-point
+        	let x =  self.view_width / 2;
+        	let y = self.view_height / 2;
+	        self.printer.draw_string(&"█".to_string(), x,y);	        	
+        }
+        
+        self.printer.render();
+        
+        self.count += 1;
 	}
 }

@@ -1,6 +1,5 @@
 // ansi escape sequences
-// http://academic.evergreen.edu/projects/biophysics/technotes/program/ansi_esc.htm
-
+// see http://academic.evergreen.edu/projects/biophysics/technotes/program/ansi_esc.htm
 pub static CLEAR: &'static str = "\x1b[2J\x1b[H";
 pub static TOP_LEFT: &'static str = "\x1b[H";
 

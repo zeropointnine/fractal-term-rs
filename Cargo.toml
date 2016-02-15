@@ -7,5 +7,5 @@ authors = ["Lee Felarca <lee@felar.ca>"]
 num = "0.1.30"
 time = "0.1"
 rand = "*"
-rustbox = "*"
+rustbox = "0.8.1"
 num_cpus = "0.2"

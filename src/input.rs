@@ -1,4 +1,5 @@
 use std::thread;
+use std::time::Duration;
 use std::sync::{Arc, Mutex};
 use rustbox;
 use rustbox::{RustBox, Key, Mouse};
@@ -26,13 +27,13 @@ pub struct ThreadLooper {
 impl ThreadLooper {
 	
 	/**
-	 * This spawns a thread which loops, polling for keyboard and mouse input using rustbox.
-	 * (Rustbox isn't used for any terminal output).
+	 * This spawns a thread which loops, polling for keyboard and mouse input us====ing rustbox.
+	 * (Rustbox is only used for this purpose, not for any terminal output).
 	 * 
 	 * Note how data is not passed using a channel's sender, but by mutating the passed-in argument, 
 	 * which is shared with the main thread. This value acts as a flag.
 	 *
-	 * TODO: Should be sharing a _queue_, not just a single item.
+	 * TODO: Should not be a flag so much as a queue...
 	 */
 	pub fn go(wrapped_command: Arc<Mutex<Command>>) -> thread::JoinHandle<()> {
 	
@@ -47,6 +48,10 @@ impl ThreadLooper {
 		    loop {
 
 				let event = rustbox.poll_event(false);  // rem, this BLOCKS
+		        
+		        // TODO: use this instead, and rip out the thread nonsense
+		        // let event = rustbox.peek_event(Duration::from_millis(5000), false); 
+		        
 		        match event {
 
 		            Ok(KeyEvent(key)) => {
