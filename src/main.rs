@@ -2,7 +2,7 @@ mod vector2;
 mod math;
 mod ansi;
 mod animator;
-mod textprinter;
+mod textrenderer;
 mod input;
 mod matrix;
 mod complex;
@@ -12,7 +12,6 @@ mod app;
 extern crate time;
 extern crate rand;
 extern crate rustbox;
-
 use std::thread;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -20,11 +19,13 @@ use time::PreciseTime;
 use input::Command;
 use app::App;
 
-// a given terminal will probably NOT be able to show every frame at this framerate :)
+
+// NB, a given terminal implementation may not be able to show every frame at this framerate :)
 const TARGET_FPS: i32 = 60; 
 
+
 /**
- * Manages the main render loop, and handing off 'commands' from the 'user-input' thread 
+ * Manages the main render loop, and hands off 'commands' from the 'user-input' thread  
  */
 fn main() {
 
@@ -45,9 +46,7 @@ fn main() {
 
 	let command = Command::None; 
     let wrapped_command = Arc::new(Mutex::new(command));
-
 	let handle = input::launch_thread(wrapped_command.clone());
-
     let wrapped_command = wrapped_command.clone();  // for use by main thread
 
 	let mut app = App::new(screen_width, screen_height);
@@ -55,11 +54,6 @@ fn main() {
     loop {
 
         timing.frame_start();
-
-		let mut should_refresh = false;
-		if timing.frame_num <= 1 {
-			should_refresh = true;
-		}
 
 		{
 			let mut locked_command = wrapped_command.lock().unwrap();
@@ -79,14 +73,6 @@ fn main() {
 		
 		app.update();
 
-		/*		
-		// TODO
-		if false &&  ! should_refresh {	
-			thread::sleep(Duration::new(0, INTERVAL));
-			continue;
-		}
-		*/
-
 		timing.calc_start();
 		app.calculate();
         timing.calc_end();
@@ -95,11 +81,10 @@ fn main() {
 		app.draw_frame(&timing.averages_info);
 		timing.render_end();			
 
-		// sleep until time for next frame
         thread::sleep(timing.get_sleep_duration());
 	}
     
-    // exit program 
+    // quit 
     let _ = handle.join();
 	println!("");
 } 
@@ -128,7 +113,6 @@ impl Timing {
 	pub fn new(target_fps: i32) -> Timing {
 		
 		Timing {
-			
 			target_fps: target_fps,
 			
 			frame_start_time: PreciseTime::now(),
@@ -185,7 +169,7 @@ impl Timing {
 	}
 	
 	/**
-	 * Calculate amount of time to sleep for program loop to update at the target_fps
+	 * Calculate the sleep duration needed for program loop to update at the target_fps
 	 */
 	pub fn get_sleep_duration(&self) -> Duration {
 		

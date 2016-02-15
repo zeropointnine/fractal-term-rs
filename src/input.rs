@@ -49,8 +49,7 @@ pub enum Command {
     Zoom(f64),
     ZoomContinuous(f64),
     Resize(usize, usize),
-    Stop, Reset,
-    Quit, 
+    Help, Stop, Reset, Quit, 
     None  
 }
 
@@ -69,10 +68,11 @@ impl Command {
                     Key::Down => Command::PositionVelocity(0.0, 1.0),
                     
                     Key::Char('a') | Key::Char('=') => Command::Zoom(-1.0),
-                    Key::Char('A') | Key::Char('+')=> Command::ZoomContinuous(-0.5),
-                    Key::Char('z') | Key::Char('-')=> Command::Zoom(1.0),
+                    Key::Char('A') | Key::Char('+') => Command::ZoomContinuous(-0.5),
+                    Key::Char('z') | Key::Char('-') => Command::Zoom(1.0),
 					Key::Char('Z') | Key::Char('_') => Command::ZoomContinuous(0.5),
                     
+                    Key::Char('/') | Key::Char('?') | Key::Char('h') | Key::Char('H') => Command::Help,
                     Key::Char(' ') => Command::Stop,
                     Key::Char('r') => Command::Reset,
                     Key::Esc | Key::Ctrl('c') => Command::Quit,

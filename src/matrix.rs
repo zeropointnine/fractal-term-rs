@@ -16,7 +16,7 @@ impl<T:Clone + Default> Matrix<T> {
 
 	pub fn new(width: usize, height: usize) -> Matrix<T> {
 
-		assert!(width > 0 && height > 0);
+		assert!(width > 0 && height > 0, format!("width and height must be > 0:  {} {}", width, height));
 
 		// TODO: can a single macro statement init a '2d' vector?
 		let mut vec: Vec<Vec<T>> = Vec::new();		

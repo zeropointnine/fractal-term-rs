@@ -13,7 +13,7 @@ use self::num::traits::Float;
 
 
 pub const DEFAULT_WIDTH: f64 = 3.5;  // a reasonable width that can fully display the main body of the Mandelbrot set
-pub const DEFAULT_MAX_ESCAPE: u16 = 50;  
+pub const DEFAULT_MAX_ESCAPE: u16 = 75;  
 
 
 #[derive(Clone)]
@@ -54,7 +54,7 @@ impl Mandelbrot {
 	fn write_matrix_mt(&self, mandelbrot_center: Vector2f, mandelbrot_width: f64, matrix: &mut Matrix<u16>) {
 
 		// horizontal strips which make up the final mandelbrot data; 
-		// the 'work product' of the threads
+		// the threads' 'work product' goes in here
 		let sections: Vec<Matrix<u16>> = vec![Matrix::new(1,1); self.num_threads]; 
 
 	    // make the data shareable and mutable
@@ -62,15 +62,17 @@ impl Mandelbrot {
 
 		let (sender, receiver) = mpsc::channel::<bool>();
 
-		let max_section_ht = (matrix.height() as f64 / self.num_threads as f64).ceil() as usize;
+		let step = (matrix.height() as f64 / self.num_threads as f64).floor() as usize;
 		for i in 0..self.num_threads {
 			
-			let start = i as usize * max_section_ht;
-			let mut end = (i + 1) as usize * max_section_ht;
-			if end >= matrix.height() {
-				end = matrix.height();
-			}
-			let section_len = end - start;
+			let start = i as usize * step;
+			let end = if i < self.num_threads -1 {
+				(i + 1) as usize * step
+			} else {
+				matrix.height()
+			};
+			let section_ht = end - start;
+			// println!("i {} start {} end {} ht {}", i, start, end, section_ht);
 
 	        // each thread needs its own sender instance
 	        let sender = sender.clone();
@@ -85,7 +87,7 @@ impl Mandelbrot {
 
 	        thread::spawn(move || {
 
-				let mut section: Matrix<u16> = Matrix::new(matrix_w, section_len);			
+				let mut section: Matrix<u16> = Matrix::new(matrix_w, section_ht);			
 				me.write_matrix_section(mandelbrot_center, mandelbrot_width, &mut section, start..end, matrix_h);
 
                 let mut locked_data = wrapped_data.lock().unwrap();

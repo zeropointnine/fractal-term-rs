@@ -1,28 +1,26 @@
 extern crate rustbox;
-
 use vector2::Vector2f;
 use animator::{Spec, Animator};
 use input::Command;
-use textprinter::{TextPrinter, Asciifier};
+use textrenderer::{TextRenderer, Asciifier};
+use ansi;
 use matrix::Matrix;
 use mandelbrot;
 use mandelbrot::Mandelbrot;
 
-
 pub const CHARACTER_ASPECT_RATIO: f64 = 0.4;  // rough estimate of character aspect ratio    
-
 const ZOOM_INCREMENT: f64 = 0.015;
-const SMALL_ZOOM_INCREMENT: f64 = 0.003;
-const CONTINUOUS_ZOOM: f64 = 0.010;
 const VELOCITY_RATIO_INCREMENT: f64 = 0.005;
 const TWEEN_MULTIPLIER: f64 = 0.08;
 const FRICTION: f64 = 0.95;
+static HELP_TEXT: &'static str = include_str!("help.txt");
+const SHOW_DEBUG_TEXT: bool = false;
 
 
-pub struct App {
+pub struct App<'a> {
 	
     matrix: Matrix<u16>,
-    pub printer: TextPrinter,
+    renderer: TextRenderer,
     asciifier: Asciifier,
 	
     mandelbrot: Mandelbrot,
@@ -34,18 +32,22 @@ pub struct App {
 	max_escape: u16,
 	
 	count: u32,
+	
+	help_text: Vec<&'a str>,
+	should_show_help: bool,
+	has_shown_help: bool
 }
 
 
-impl App {
+impl<'a> App<'a> {
 	
-	pub fn new(view_width: usize, view_height: usize) -> App {
+	pub fn new(view_width: usize, view_height: usize) -> App<'a> {
 		
 	    let max_esc = mandelbrot::DEFAULT_MAX_ESCAPE;
 		
 		App {
 		    matrix: Matrix::new(view_width, view_height),
-		    printer: TextPrinter::new(view_width, view_height),
+		    renderer: TextRenderer::new(view_width, view_height),
 		    asciifier: Asciifier::new(max_esc as f64),
 		    
 		    mandelbrot: Mandelbrot::new(CHARACTER_ASPECT_RATIO),
@@ -55,7 +57,10 @@ impl App {
 			view_width: view_width,
 			view_height: view_height,
 			max_escape: max_esc,
-			count: 0
+			count: 0,
+			help_text: HELP_TEXT.lines().collect(),
+			should_show_help: false,
+			has_shown_help: false,
 		}
     }
 	
@@ -110,7 +115,7 @@ impl App {
 			},
 
 			Command::Resize(w, h) => {
-				// TODO
+				self.size(w, h);
 			}
 						
 			Command::Stop => { 
@@ -126,6 +131,16 @@ impl App {
 			},
 
 			_ => {}
+		}
+		
+		match *command {
+			Command::Help => {
+				self.should_show_help = true;
+				self.has_shown_help = true;
+			},
+			_ => {
+				self.should_show_help = false;
+			}
 		}
 	}
 	
@@ -144,20 +159,39 @@ impl App {
 	
 	pub fn draw_frame(&mut self, debug_info: &String) {
         
-        self.printer.draw_ascii_rect(&self.matrix, &self.asciifier);
-    
-        let info = format!(" {:.0}x {}", self.get_magnification(), debug_info);    
-        self.printer.draw_string(&info, 1, self.view_height - 1);
+        self.renderer.draw_ascii_rect(&self.matrix, &self.asciifier);
 
-        if true && self.count % 60 < 15 {
-        	// show center-point
+        let mut info = format!(" {:.0}x ", self.get_magnification());
+        if SHOW_DEBUG_TEXT {
+        	info = info + &debug_info;
+        }    
+        self.renderer.draw_string(&info, 1, self.view_height - 1);
+
+        if self.count % 60 < 10 {  // show center-point
         	let x =  self.view_width / 2;
         	let y = self.view_height / 2;
-	        self.printer.draw_string(&"█".to_string(), x,y);	        	
+	        self.renderer.draw_string(&"█".to_string(), x,y);	        	
         }
         
-        self.printer.render();
+        if self.should_show_help {
+        	self.renderer.draw_text(&self.help_text, &self.vp_center_anim.value);
+        	
+        }
+
+		if ! self.should_show_help && ! self.has_shown_help {
+        	let s = " [H] help ".to_string();
+        	self.renderer.draw_string(&s, self.view_width - s.len() - 1, 1);
+		}
+   
+        self.renderer.render();
         
         self.count += 1;
+	}
+	
+	fn size(&mut self, w: usize, h: usize) {
+		self.view_width = w;
+		self.view_height = h;
+	    self.matrix = Matrix::new(self.view_width, self.view_height);
+		self.renderer.size(self.view_width, self.view_height);
 	}
 }

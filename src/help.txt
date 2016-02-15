@@ -1,0 +1,18 @@
+                                     
+  Mouse:                             
+                                     
+       [left click] move             
+     [scroll wheel] zoom             
+                                     
+  Keyboard:                          
+                                     
+      [arrow keys]  move             
+           [+]/[-]  zoom             
+     shift [+]/[-]  continuous zoom  
+               [r]  reset            
+                                     
+                                     
+                                     
+                                     
+                                     
+                                     

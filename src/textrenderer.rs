@@ -1,35 +1,26 @@
 use std::cmp::{max, min};
 use ansi;
 use matrix::Matrix;
+use vector2::Vector2f;
+
 
 /**
  * Prints a screenful of text to stdout using a buffer
  */
-pub struct TextPrinter {
-    width: usize,
-    height: usize,
+pub struct TextRenderer {
     buffer: Matrix<char>
 }
 
-impl TextPrinter {
+impl TextRenderer {
 
-    pub fn new(width: usize, height: usize) -> TextPrinter {
-        let m = Matrix::new(width, height);
-        TextPrinter {
-            width: width,
-            height: height,
-            buffer: m
+    pub fn new(width: usize, height: usize) -> TextRenderer {
+        TextRenderer {
+            buffer: Matrix::new(width, height)
         }
     }
 
-	/**
-	 *
-	 */
-	pub fn draw_string(&mut self, string: &String, mut x: usize, y: usize) {
-		for char in string.chars() {
-			self.buffer.set(x, y, char);
-			x += 1;
-		}
+	pub fn size(&mut self, w: usize, h: usize) {
+		self.buffer = Matrix::new(w, h);
 	}
 
 	/**
@@ -44,6 +35,36 @@ impl TextPrinter {
 				self.buffer.set(x, y, char);
 			}
 		}		
+	}
+	
+	/**
+	 *
+	 */
+	pub fn draw_string(&mut self, string: &String, mut x: usize, y: usize) {
+		for char in string.chars() {
+			self.buffer.set(x, y, char);
+			x += 1;
+		}
+	}
+
+	/**
+	 *
+	 */
+	pub fn draw_text(&mut self, text: &Vec<&str>, pos: &Vector2f) {
+		let mut y = (self.buffer.height() - text.len()) / 2;  // vertically centered
+		let mut x = 0;
+		for s in text {
+			x = self.buffer.width() - s.len();  // right-justified
+			self.draw_string(&s.to_string(), x, y);
+			y += 1;
+		}
+		
+		// TODO: this doesn't belong here:
+		self.draw_string(&"Coordinates:".to_string(), x + 2, y - 5);
+		let s = format!("{},", pos.x);
+		self.draw_string(&s, x + 5, y - 3);
+		let s = format!("{}", pos.y);
+		self.draw_string(&s, x + 5, y - 2);
 	}
 
 	/**
@@ -61,15 +82,14 @@ impl TextPrinter {
 
 // ---
 
-// a collection of characters vaguely ordered by 'character weight'
-const DEFAULT_CHARS: &'static str = ".,:;*icxeaoIGUOQ08%X#@";
+const DEFAULT_CHARS: &'static str = " .,:;+*=ixcaoelf?IGUOQ08%X&#@";
 
 /**
  * 'Asciifies' values into chars.
  * (isn't limited to ascii charset, of course)
  */
 pub struct Asciifier {
-    chars: Vec<char>,
+    chars: Vec<char>,  // should be ordered by visual 'character weight'
     value_ceil: f64,
     value_step: f64,
 }
