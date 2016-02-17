@@ -4,18 +4,23 @@ use matrix::Matrix;
 use vector2::Vector2f;
 
 
+static HELP_TEXT: &'static str = include_str!("help.txt");
+
+
 /**
  * Prints a screenful of text to stdout using a buffer
  */
-pub struct TextRenderer {
-    buffer: Matrix<char>
+pub struct TextRenderer<'a> {
+    buffer: Matrix<char>,
+   	help_text: Vec<&'a str>,
 }
 
-impl TextRenderer {
+impl<'a> TextRenderer<'a> {
 
-    pub fn new(width: usize, height: usize) -> TextRenderer {
+    pub fn new(width: usize, height: usize) -> TextRenderer<'a> {
         TextRenderer {
-            buffer: Matrix::new(width, height)
+            buffer: Matrix::new(width, height),
+   			help_text: HELP_TEXT.lines().collect(),
         }
     }
 
@@ -42,33 +47,46 @@ impl TextRenderer {
 	 */
 	pub fn draw_string(&mut self, string: &String, mut x: usize, y: usize) {
 		for char in string.chars() {
+			if x >= self.buffer.width() {
+				break;	
+			}
 			self.buffer.set(x, y, char);
 			x += 1;
 		}
 	}
 
 	/**
+	 * Draw help text dialog
 	 *
+	 * offset_ratio: @0, dialog is fully visible; @1, dialog is off-screen
+	 *
+	 * TODO: make more general draw-block-of-text function
 	 */
-	pub fn draw_text(&mut self, text: &Vec<&str>, pos: &Vector2f) {
-		let mut y = (self.buffer.height() - text.len()) / 2;  // vertically centered
-		let mut x = 0;
-		for s in text {
-			x = self.buffer.width() - s.len();  // right-justified
+	pub fn draw_help_dialog(&mut self, offset_ratio: f64, vp_pos: &Vector2f) {
+
+		// TODO: doing this temporarily to keep compiler from complaining, 
+		//       but need to figure out correct way to handle this
+		let help_text = self.help_text.clone();
+		
+		let mut y = (self.buffer.height() - self.help_text.len()) / 2;  // vertically centered
+		let mut x = self.buffer.width() - help_text[0].len();  // right-justified
+		x += (help_text[0].len() as f64 * offset_ratio) as usize;
+
+		for s in help_text {
 			self.draw_string(&s.to_string(), x, y);
 			y += 1;
 		}
-		
-		// TODO: this doesn't belong here:
-		let mut s = format!("{:.*}", 17, pos.x);
-		if pos.x >= 0.0 {
+
+		// draw viewport position; f64 should have up to 17 sig  digits
+		let mut s = format!("{:.*}", 17, vp_pos.x);  
+		if vp_pos.x >= 0.0 {
 			s = "x  ".to_string() + &s;
 		} else {
 			s = "x ".to_string() + &s;
 		}
 		self.draw_string(&s, x + 4, y - 3);
-		let mut s = format!("{:.*}", 17, pos.y);
-		if pos.y >= 0.0 {
+		let mut s = format!("{:.*}", 17, vp_pos.y);
+		if vp_pos.y >= 0.0 {
 			s = "y  ".to_string() + &s;
 		} else {
 			s = "y ".to_string() + &s;

@@ -32,8 +32,8 @@ impl Animator<f64> {
 				*scale = *scale * friction;
 			},
 
-			&mut Spec::Tween { .. } => { 
-				// TODO: implement
+			&mut Spec::Tween { ref target, coefficient } => { 
+				self.value = self.value + (target - self.value) * coefficient;
 			},
 			
 			_ => {}

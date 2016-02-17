@@ -16,40 +16,41 @@ const VELOCITY_RATIO_INCREMENT: f64 = 0.007;
 const ROTATION_VELOCITY_INCREMENT: f64 = 1.2 * DEG;
 const TWEEN_MULTIPLIER: f64 = 0.08;
 const FRICTION: f64 = 0.95;
-static HELP_TEXT: &'static str = include_str!("help.txt");
 const SHOW_DEBUG_TEXT: bool = true;
 
 
 pub struct App<'a> {
 	
     matrix: Matrix<u16>,
-    renderer: TextRenderer,
+    renderer: TextRenderer<'a>,
     asciifier: Asciifier,
 	
     mandelbrot: Mandelbrot,
 	vp_center_anim: Animator<Vector2f>,
 	vp_width_anim: Animator<f64>,
 	vp_rotation_anim: Animator<f64>,
-
+	
 	view_width: usize,
 	view_height: usize,
 	max_escape: u16,
 	
 	count: u32,
 	
-	help_text: Vec<&'a str>,
 	should_show_help: bool,
-	has_shown_help: bool
+	has_shown_help: bool,
+	help_anim: Animator<f64>,
 }
 
 
 impl<'a> App<'a> {
 	
-	pub fn new(view_width: usize, view_height: usize) -> App<'a> {
+	pub fn new() -> App<'a> {
 		
 	    let max_esc = 500;
+	    let view_width = 80 as usize;
+	    let view_height = 24 as usize;  
 		
-		let app = App {
+		App {
 		    matrix: Matrix::new(view_width, view_height),
 		    renderer: TextRenderer::new(view_width, view_height),
 		    asciifier: Asciifier::new(max_esc as f64),
@@ -67,12 +68,12 @@ impl<'a> App<'a> {
 			max_escape: max_esc,
 			count: 0,
 
-			help_text: HELP_TEXT.lines().collect(),
 			should_show_help: false,
 			has_shown_help: false,
-		};
+			help_anim: Animator { value: 1.0, spec: Spec::None }
+		}
 		
-		app
+	    // note, size() should be called after instantiation with the real terminal dimensions
     }
 	
 	pub fn handle_command(&mut self, command: &Command) {
@@ -143,7 +144,7 @@ impl<'a> App<'a> {
 				}
 			}
 
-			Command::Resize(w, h) => {
+			Command::Size(w, h) => {
 				self.size(w, h);
 			}
 
@@ -169,9 +170,14 @@ impl<'a> App<'a> {
 			Command::Help => {
 				self.should_show_help = true;
 				self.has_shown_help = true;
+				// animate-in help dialog
+				self.help_anim = Animator { value: self.help_anim.value, spec: Spec::Tween { target: 0.0, coefficient: 0.20 } };
 			},
 			_ => {
-				self.should_show_help = false;
+				if self.should_show_help {
+					// animate-out help dialog
+					self.help_anim = Animator { value: self.help_anim.value, spec: Spec::Tween { target: 1.1, coefficient: 0.20 } };
+				}
 			}
 		}
 	}
@@ -183,9 +189,7 @@ impl<'a> App<'a> {
 	pub fn update(&mut self) {
 		
 		self.vp_width_anim.update();
-		
 		self.vp_rotation_anim.update();
-
 		match self.vp_center_anim.spec {
 			Spec::VelocityWithRotation { ref mut rotation, .. } => {
 				*rotation = self.vp_rotation_anim.value;
@@ -194,6 +198,19 @@ impl<'a> App<'a> {
 
 		}
 		self.vp_center_anim.update();
+		
+		if self.should_show_help {
+			self.help_anim.update();
+			if self.help_anim.value < 0.001 {
+				// anim-in is complete
+				self.help_anim.spec = Spec::None;
+			} else if self.help_anim.value > 1.0 {
+				// anim-out is complete
+				self.help_anim.value = 1.0;
+				self.should_show_help = false;
+			}
+		}
+		
 	}
 	
 	pub fn calculate(&mut self) {
@@ -219,8 +236,7 @@ impl<'a> App<'a> {
         }
         
         if self.should_show_help {
-        	self.renderer.draw_text(&self.help_text, &self.vp_center_anim.value);
-        	
+        	self.renderer.draw_help_dialog(self.help_anim.value, &self.vp_center_anim.value);
         }
 
 		if ! self.should_show_help && ! self.has_shown_help {

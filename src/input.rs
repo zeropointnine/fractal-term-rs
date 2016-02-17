@@ -21,8 +21,14 @@ pub fn launch_thread(wrapped_command: Arc<Mutex<Command>>) -> thread::JoinHandle
 	    let rustbox = match RustBox::init(
 	    		rustbox::InitOptions { input_mode: rustbox::InputMode::EscMouse, buffer_stderr: false }) {  
 	        Result::Ok(v) => v,
-	        Result::Err(e) => panic!("{}", e),  // TODO: tell receiver about error
+	        Result::Err(e) => panic!("{}", e),
 	    };
+
+		{
+			// immediately set the command to tell app the terminal's character dimensions
+			let mut locked_command = wrapped_command.lock().unwrap();
+			*locked_command = Command::Size(rustbox.width(), rustbox.height());
+		}	    		
 	
 	    loop {
 
@@ -41,7 +47,7 @@ pub fn launch_thread(wrapped_command: Arc<Mutex<Command>>) -> thread::JoinHandle
     })
 }	
 
-// TODO: make this an Optional maybe
+
 #[derive(Debug)]
 pub enum Command {
     PositionVelocity(f64,f64),
@@ -49,9 +55,10 @@ pub enum Command {
     Zoom(f64),
     ZoomContinuous(f64),
     RotationVelocity(f64),
-    Resize(usize, usize),
+    Size(usize, usize),
     Help, Stop, Reset, Quit, 
-    None  
+    None, 
+    // TODO: use 'Option' pattern instead of 'none' ?  
 }
 
 impl Command {
@@ -96,7 +103,7 @@ impl Command {
 	        },
 		    
 		    ResizeEvent(w, h) => {
-		    	Command::Resize(w as usize, h as usize)
+		    	Command::Size(w as usize, h as usize)
 		    },
 		    
    		    _ => {

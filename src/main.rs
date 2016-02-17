@@ -20,9 +20,7 @@ use input::Command;
 use app::App;
 
 
-
-// NB, a given terminal program may not be able to show every frame at this framerate :)
-const TARGET_FPS: i32 = 60; 
+const TARGET_FPS: i32 = 60;  // a given terminal target may not show every frame @ 60fps 
 
 
 /**
@@ -30,27 +28,14 @@ const TARGET_FPS: i32 = 60;
  */
 fn main() {
 
-	let mut timing = Timing::new(TARGET_FPS);
-
-	// use rustbox just long enough to get terminal dimensions
-	let screen_width: usize;
-	let screen_height: usize;
-    {
-    	let opts = rustbox::InitOptions { input_mode: rustbox::InputMode::AltMouse, buffer_stderr: false };
-        let rustbox = match rustbox::RustBox::init(opts) {
-            Result::Ok(v) => v,
-            Result::Err(e) => panic!("{}", e),
-        };
-        screen_width = rustbox.width();
-        screen_height = rustbox.height();
-    }
-
 	let command = Command::None; 
     let wrapped_command = Arc::new(Mutex::new(command));
 	let handle = input::launch_thread(wrapped_command.clone());
     let wrapped_command = wrapped_command.clone();  // for use by main thread
 
-	let mut app = App::new(screen_width, screen_height);
+	let mut timing = Timing::new(TARGET_FPS);
+
+	let mut app = App::new();
 
     loop {
 
