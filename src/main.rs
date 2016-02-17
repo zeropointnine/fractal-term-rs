@@ -21,7 +21,7 @@ use app::App;
 
 
 
-// NB, a given terminal implementation may not be able to show every frame at this framerate :)
+// NB, a given terminal program may not be able to show every frame at this framerate :)
 const TARGET_FPS: i32 = 60; 
 
 

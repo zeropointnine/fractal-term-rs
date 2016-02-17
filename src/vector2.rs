@@ -25,7 +25,7 @@
 //! Utility Class providing 2 dimensional vectors for i32, u32, and f64.
 
 // Lee: Changed f32 to f64
-// 		Added static len() method; rotate() method
+// 		Added static len() method; rotates method
 
 use std::ops::{Add, Sub, Mul, Div};
 
@@ -70,6 +70,14 @@ impl<T> Vector2<T> {
 		let y = point.x * theta.sin() + point.y * theta.cos();
 		Vector2::new(x, y)
     }
+
+	/*
+	// TODO: compiler complains - what don't i understand? 
+    pub fn rotate_self(&mut self, theta: f64) {
+    	self.x = self.x * theta.cos() - self.y * theta.sin();
+		self.y = self.x * theta.sin() + self.y * theta.cos();
+    }
+    */
 }
 
 impl<T: Add + Copy> Add<T> for Vector2<T> {

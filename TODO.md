@@ -1,20 +1,23 @@
 = TODO
 
-code
+add help show/hide tween
 
-    should be able to map value-to-chars not just linearly but logarithmically, etc.
+re-add 'clamp' logic
+    
+re-add logic to stop anim when velocity below a threshhold value
 
-    re-add 'clamp' logic
-    re-add logic to stop anim when velocity below a threshhold value
-
+make anim class time-based (how to do this with friction coefficient tho?)
 features
 
-    add rotation action
+auto-contrast using histogram?
 
-    auto-contrast using histogram
+and tween 'brightness' for anim-in or for help text etc.
 
-    and tween 'brightness' for anim-in or for help text etc.
+add waypoint action, including for 'reset' 
 
-    add waypoint action, including for 'reset' 
+add other fractals?
 
-    add other fractal sets
+run on windows someday (could be much faster); 
+would require rustbox to support it, or find another lib
+also on linux?
+

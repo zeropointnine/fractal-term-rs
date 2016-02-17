@@ -84,7 +84,7 @@ impl TextRenderer {
     	for y in 0..self.buffer.height() {
     		let row = self.buffer.get_row(y);
     		let s: String = row.into_iter().cloned().collect();
-    		print!("{}{}", ansi::move_cursor((y + 1) as i32, 1), s);
+    		print!("{}{}", ansi::move_cursor(0, y as i32), s);
     	}
     }
 }
@@ -98,7 +98,7 @@ const DEFAULT_CHARS: &'static str = " .,:;+*=ixcaoelf?IGUOQ08%X&#@";
  * (isn't limited to ascii charset, of course)
  */
 pub struct Asciifier {
-    chars: Vec<char>,  // should be ordered by visual 'character weight'
+    chars: Vec<char>,  // a collection of characters that are ordered by visual 'character weight'
     value_ceil: f64,
     value_step: f64,
 }
@@ -125,6 +125,23 @@ impl Asciifier {
     }
     
     pub fn value_to_char(&self, value: f64) -> char {
+    	// TODO: can this be 'parameterized' with a function pointer?
+    	if true {
+    		self.transform_sqrt(value)
+    	} else {
+    		self.transform_linear(value)
+    	}
+    }
+    
+    pub fn transform_sqrt(&self, value: f64) -> char {
+    	
+    	let ratio = value / self.value_ceil;
+    	let value = ratio.sqrt();
+    	let value = value * self.value_ceil;
+        self.transform_linear(value)
+    }
+
+    pub fn transform_linear(&self, value: f64) -> char {
         let mut i = (value / self.value_step) as usize;
         if i > self.chars.len() - 1 {
             i = self.chars.len() - 1;

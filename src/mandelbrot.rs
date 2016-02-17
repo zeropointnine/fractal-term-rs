@@ -14,7 +14,7 @@ use self::num::traits::Float;
 
 
 pub const DEFAULT_WIDTH: f64 = 3.5;  // a reasonable width that can display the main body of the Mandelbrot set
-pub const DEFAULT_MAX_ESCAPE: u16 = 75;  
+pub const DEFAULT_MAX_ESCAPE: u16 = 100;  
 
 
 #[derive(Clone)]
@@ -27,9 +27,9 @@ pub struct Mandelbrot {
 
 impl Mandelbrot {
 	
-	pub fn new(element_aspect_ratio: f64, use_multi_threads: bool) -> Mandelbrot {
+	pub fn new(max_escape: u16, element_aspect_ratio: f64, use_multi_threads: bool) -> Mandelbrot {
 		Mandelbrot { 
-			max_escape: DEFAULT_MAX_ESCAPE,
+			max_escape: max_escape,
 			element_aspect_ratio: element_aspect_ratio,
 			use_multi_threads: use_multi_threads,
 			num_threads: num_cpus::get() as usize,

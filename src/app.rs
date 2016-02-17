@@ -8,15 +8,16 @@ use matrix::Matrix;
 use mandelbrot;
 use mandelbrot::Mandelbrot;
 
-pub const CHARACTER_ASPECT_RATIO: f64 = 0.4;  // rough estimate of character aspect ratio    
+// rough estimate of terminal font's character aspect ratio, which we can't rly know
+pub const CHARACTER_ASPECT_RATIO: f64 = 0.4;      
 const DEG: f64 = std::f64::consts::PI / 180.0;
 const ZOOM_INCREMENT: f64 = 0.015;
-const VELOCITY_RATIO_INCREMENT: f64 = 0.005;
-const ROTATION_VELOCITY_INCREMENT: f64 = 1.0 * DEG;
+const VELOCITY_RATIO_INCREMENT: f64 = 0.007;
+const ROTATION_VELOCITY_INCREMENT: f64 = 1.2 * DEG;
 const TWEEN_MULTIPLIER: f64 = 0.08;
 const FRICTION: f64 = 0.95;
 static HELP_TEXT: &'static str = include_str!("help.txt");
-const SHOW_DEBUG_TEXT: bool = false;
+const SHOW_DEBUG_TEXT: bool = true;
 
 
 pub struct App<'a> {
@@ -30,7 +31,7 @@ pub struct App<'a> {
 	vp_width_anim: Animator<f64>,
 	vp_rotation_anim: Animator<f64>,
 
-	view_width: usize,  // TODO: make 'pub fn set_dimensions(w: u16, h:16)'
+	view_width: usize,
 	view_height: usize,
 	max_escape: u16,
 	
@@ -46,17 +47,20 @@ impl<'a> App<'a> {
 	
 	pub fn new(view_width: usize, view_height: usize) -> App<'a> {
 		
-	    let max_esc = mandelbrot::DEFAULT_MAX_ESCAPE;
+	    let max_esc = 500;
 		
-		App {
+		let app = App {
 		    matrix: Matrix::new(view_width, view_height),
 		    renderer: TextRenderer::new(view_width, view_height),
 		    asciifier: Asciifier::new(max_esc as f64),
 		    
-		    mandelbrot: Mandelbrot::new(CHARACTER_ASPECT_RATIO, true),
-			vp_center_anim: Animator { value: Vector2f { x: 0.0, y: 0.0 }, spec: Spec::None },
+		    // spirals x: 0.32450637064523491, y:0.04855313313619743
+		    // tip: x: -178644781511005024, y: 0.0
+		    
+		    mandelbrot: Mandelbrot::new(max_esc, CHARACTER_ASPECT_RATIO, true),
+			vp_center_anim: Animator { value: Vector2f { x: 0.32450637064523491, y:0.04855313313619743 }, spec: Spec::None },
 			vp_width_anim: Animator { value: mandelbrot::DEFAULT_WIDTH, spec: Spec::None },
-			vp_rotation_anim: Animator { value: 0.0, spec: Spec::Velocity { velocity: 0.0, friction: FRICTION } },
+			vp_rotation_anim: Animator { value: 0.0, spec: Spec::None },
 			
 			view_width: view_width,
 			view_height: view_height,
@@ -66,7 +70,9 @@ impl<'a> App<'a> {
 			help_text: HELP_TEXT.lines().collect(),
 			should_show_help: false,
 			has_shown_help: false,
-		}
+		};
+		
+		app
     }
 	
 	pub fn handle_command(&mut self, command: &Command) {
@@ -78,29 +84,35 @@ impl<'a> App<'a> {
 			Command::PositionVelocity(xm, ym) => {  
 				let increment = Vector2f { x: vel_increment * xm, y: vel_increment * ym };
 				match self.vp_center_anim.spec {
-					Spec::Velocity { ref mut velocity, .. } => {
+					Spec::VelocityWithRotation { ref mut velocity, .. } => {
 						*velocity = *velocity + increment;
 					},
-					_ => self.vp_center_anim.spec = Spec::Velocity { velocity: increment, friction: FRICTION },
+					_ => {
+						self.vp_center_anim.spec = Spec::VelocityWithRotation { 
+							velocity: increment, rotation: 0.0, friction: FRICTION
+						} 
+					}
 				}
 			},
 
-			Command::PositionTween(char_col, char_row) => {  // rem, these params are 0-indexed not 1-indexed
+			Command::PositionTween(char_col, char_row) => {
 
-				let half_screen_w = self.view_width as f64 / 2.0;
-				let ratio_x = (char_col as f64 - half_screen_w) / half_screen_w;
-				let half_vp_width = self.vp_width_anim.value / 2.0;
-				let target_x = self.vp_center_anim.value.x + (ratio_x * half_vp_width);
+				let screen_center_x = self.view_width as f64 / 2.0;
+				let screen_offset_ratio_x = (char_col as f64 - screen_center_x) / screen_center_x;
 				
 				// y requires extra logic:
 				let ar = self.view_width as f64 / self.view_height as f64;
 				let viewport_height = self.vp_width_anim.value * (1.0 / ar)  *  (1.0 / self.mandelbrot.element_aspect_ratio);
+				let screen_center_y = self.view_height as f64 / 2.0;
+				let screen_offset_ratio_y = (char_row as f64 - screen_center_y) / screen_center_y;
 
-				let half_screen_h = self.view_height as f64 / 2.0;
-				let ratio_y = (char_row as f64 - half_screen_h) / half_screen_h;
-				let half_vp_height = viewport_height / 2.0;
-				let target_y = self.vp_center_anim.value.y + (ratio_y * half_vp_height);
-
+				let vp_center = Vector2f::new(self.vp_width_anim.value / 2.0, viewport_height / 2.0);
+				let vp_center_offset = Vector2f::new(screen_offset_ratio_x * vp_center.x, screen_offset_ratio_y * vp_center.y);
+				
+				let vp_center_offset = Vector2f::rotate(vp_center_offset, self.vp_rotation_anim.value);
+				let target_x = self.vp_center_anim.value.x + vp_center_offset.x;
+				let target_y = self.vp_center_anim.value.y + vp_center_offset.y;
+				
 				self.vp_center_anim.spec = Spec::Tween {
 					target: Vector2f { x: target_x, y: target_y }, coefficient: TWEEN_MULTIPLIER}					
 			}
@@ -125,24 +137,29 @@ impl<'a> App<'a> {
 					Spec::Velocity { ref mut velocity, .. } => {
 						*velocity = *velocity + increment;
 					},
-					_ => {},
+					_ => {
+						self.vp_rotation_anim.spec = Spec::Velocity { velocity: increment, friction: FRICTION }
+					},
 				}
 			}
 
 			Command::Resize(w, h) => {
 				self.size(w, h);
 			}
-						
+
 			Command::Stop => { 
 				self.vp_center_anim.spec = Spec::None;
 				self.vp_width_anim.spec = Spec::None; 
+				self.vp_rotation_anim.spec = Spec::None;
 			},
 			Command::Reset => { 
 				self.vp_center_anim.value.x = 0.0;
 				self.vp_center_anim.value.y = 0.0;
 				self.vp_center_anim.spec = Spec::None;
 				self.vp_width_anim.value = mandelbrot::DEFAULT_WIDTH;
-				self.vp_width_anim.spec = Spec::None; 
+				self.vp_width_anim.spec = Spec::None;
+				self.vp_rotation_anim.value = 0.0;
+				self.vp_rotation_anim.spec = Spec::None;
 			},
 
 			_ => {}
@@ -164,9 +181,18 @@ impl<'a> App<'a> {
 	}
 	
 	pub fn update(&mut self) {
+		
 		self.vp_width_anim.update();
+		
 		self.vp_rotation_anim.update();
 
+		match self.vp_center_anim.spec {
+			Spec::VelocityWithRotation { ref mut rotation, .. } => {
+				*rotation = self.vp_rotation_anim.value;
+			},
+			_ => { }
+
+		}
 		self.vp_center_anim.update();
 	}
 	
