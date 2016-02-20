@@ -2,11 +2,9 @@ extern crate num;
 extern crate num_cpus;
 
 use std;
-use std::ops::Range;
 use std::thread;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc;
-use math;
 use vector2::Vector2f;
 use matrix::Matrix;
 use self::num::complex::Complex;
@@ -176,7 +174,6 @@ impl Mandelbrot {
 		ht		
 	}		
 	
-
 	/**
 	 * The actual mandelbrot set calculation
 	 */	
@@ -190,4 +187,26 @@ impl Mandelbrot {
 		}
 		val
 	}
+
+	// TEMP TEST
+//	fn get_value_xxx(&self, x: f64, y: f64) -> u16 {
+//		let c = Complex { re: x, im: y };
+//
+//        let i = 0..self.max_escape
+//            c = (c * c) + c;
+//        }
+//        // If the threshold^2 is larger than the magnitude, return true.
+//        return c.magnitude() < threshold*threshold;
+//		
+//
+//
+//
+//		let mut z = Complex { re: 0f64, im: 0f64 };
+//		let mut val = 0;
+//		while z.norm_sqr().sqrt() < 2.0f64 && val < self.max_escape {   
+//			z = z  * z + c;
+//			val += 1;
+//		}
+//		val		
+//	}
 }

@@ -7,6 +7,7 @@ mod input;
 mod matrix;
 mod complex;
 mod mandelbrot;
+mod pois;
 mod app;
 
 extern crate time;
@@ -19,8 +20,8 @@ use time::PreciseTime;
 use input::Command;
 use app::App;
 
-
-const TARGET_FPS: i32 = 60;  // a given terminal target may not show every frame @ 60fps 
+// a given terminal may not (probably won't) show every frame @ 60fps
+const TARGET_FPS: i32 = 60;   
 
 
 /**
@@ -72,7 +73,6 @@ fn main() {
     
     // quit 
     let _ = handle.join();
-	println!("");
 } 
 
 // ---

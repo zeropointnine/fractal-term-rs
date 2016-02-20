@@ -62,7 +62,7 @@ impl<'a> TextRenderer<'a> {
 	 *
 	 * TODO: make more general draw-block-of-text function
 	 */
-	pub fn draw_help_dialog(&mut self, offset_ratio: f64, vp_pos: &Vector2f) {
+	pub fn draw_help_dialog(&mut self, offset_ratio: f64, vp_pos: &Vector2f, zoom: f64) {
 
 		// TODO: doing this temporarily to keep compiler from complaining, 
 		//       but need to figure out correct way to handle this
@@ -77,20 +77,23 @@ impl<'a> TextRenderer<'a> {
 			y += 1;
 		}
 
-		// draw viewport position; f64 should have up to 17 sig  digits
+		// draw viewport position; f64 should have up to 17 sig digits
 		let mut s = format!("{:.*}", 17, vp_pos.x);  
 		if vp_pos.x >= 0.0 {
-			s = "x  ".to_string() + &s;
+			s = "x    ".to_string() + &s;
 		} else {
-			s = "x ".to_string() + &s;
+			s = "x   ".to_string() + &s;
 		}
-		self.draw_string(&s, x + 4, y - 3);
+		self.draw_string(&s, x + 4, y - 4);
 		let mut s = format!("{:.*}", 17, vp_pos.y);
 		if vp_pos.y >= 0.0 {
-			s = "y  ".to_string() + &s;
+			s = "y    ".to_string() + &s;
 		} else {
-			s = "y ".to_string() + &s;
+			s = "y   ".to_string() + &s;
 		}
+		self.draw_string(&s, x + 4, y - 3);
+		
+		s = format!("zoom {:.0}x", zoom);
 		self.draw_string(&s, x + 4, y - 2);
 	}
 

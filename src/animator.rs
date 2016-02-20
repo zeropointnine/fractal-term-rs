@@ -2,19 +2,48 @@ use std::ops::{Add, Mul};
 use vector2::Vector2f;
 
 
-#[derive(Debug)]
-
 /**
- * Animates a float or Vector2 thru successive calls to "update()"
+ * Used to animate a value thru successive calls to "update()"
+ *
+ * TODO: Try to have Animator take a reference to the value
+ *       rather than owning it, which limits its usefulness
+ * TODO: Is currently in general super-unergonomic :(
  */
+#[derive(Debug)]
 pub struct Animator<T> where T:Add + Copy, T::Output:Add+Copy{
 	pub value: T,
-	pub spec: Spec<T> 
+	spec: Spec<T>,
+	target_is_gt: bool, // used for threshhold/completion test for Spec::Target
 }
 
 impl Animator<f64> {
+
+	// Always use this
+	// TODO: how to disallow the creation of a 'struct literal'?
+	pub fn new(value: f64, spec: Spec<f64>) -> Animator<f64> {
+		let mut a = Animator { value: value, spec: Spec::None, target_is_gt: false };
+		a.set_spec(spec);
+		a
+	}
+
+	pub fn spec(&mut self) -> &Spec<f64> {
+		&mut self.spec
+	}
+
+	pub fn set_spec(&mut self, spec: Spec<f64>) {
+		match spec {
+			Spec::None => {}
+			Spec::Target { ref target, .. } => {
+				self.target_is_gt = target > &self.value;
+			},
+			_ => {}
+		}
+		self.spec = spec;
+	}
 	
 	pub fn update(&mut self) {   
+		
+		let mut should_set_spec_none = false;
 		
 		match &mut self.spec {
 
@@ -32,18 +61,60 @@ impl Animator<f64> {
 				*scale = *scale * friction;
 			},
 
-			&mut Spec::Tween { ref target, coefficient } => { 
+			&mut Spec::Target { target, coefficient, epsilon } => { 
+				
 				self.value = self.value + (target - self.value) * coefficient;
+				
+				match epsilon {
+					Some(eps) => {
+						if self.target_is_gt {
+							let thresh = target - eps;
+							if self.value >= thresh {
+								// value is increasing and is almost at (or past) target
+								self.value = target;
+								should_set_spec_none = true;
+							}
+						} else {
+							let thresh = target + eps;
+							if self.value <= thresh {
+								// value is decreasing and is almost at (or past) target
+								self.value = target;
+								should_set_spec_none = true;
+							}
+						}
+					},
+					_ => {}
+				}
 			},
 			
 			_ => {}
+		}
+		
+		if should_set_spec_none {
+			self.spec = Spec::None;
 		}
 	}
 }
 
 impl Animator<Vector2f> {
 	
+	pub fn new(value: Vector2f, spec: Spec<Vector2f>) -> Animator<Vector2f> {
+		let mut a = Animator { value: value, spec: Spec::None, target_is_gt: false };
+		a.set_spec(spec);
+		a
+	}
+
+	pub fn spec(&mut self) -> &Spec<Vector2f> {
+		&mut self.spec
+	}
+
+	pub fn set_spec(&mut self, spec: Spec<Vector2f>) {
+		self.spec = spec;
+	}
+
 	pub fn update(&mut self) {
+		   
+		let mut should_set_spec_none = false;
 		   
 		match &mut self.spec {
 
@@ -58,12 +129,28 @@ impl Animator<Vector2f> {
 				*velocity = *velocity * friction;
 			},
 
-			&mut Spec::Tween { ref target, coefficient } => {  
+			&mut Spec::Target { ref target, coefficient, epsilon } => {  
 				self.value.x = self.value.x + (target.x - self.value.x) * coefficient;
 				self.value.y = self.value.y + (target.y - self.value.y) * coefficient;
+				
+				match epsilon {
+					// TODO: untested
+					Some(eps) => {
+						let v = Vector2f::new(self.value.x - target.x, self.value.y - target.y);
+						if Vector2f::len(v) <= eps {
+							self.value = *target;
+							should_set_spec_none = true;
+						}
+					},
+					_ => {}
+				}
 			},
 
 			_ => {}
+		}
+		
+		if should_set_spec_none {
+			self.spec = Spec::None;
 		}
 	}
 }
@@ -85,8 +172,12 @@ pub enum Spec<T> where T:Add + Copy, T::Output:Add+Copy {
 	Scale { scale: f64, friction: f64 },        
 
 	// Value moves towards target (ease-out tween)
-	// TODO: refactor to enable Penner style tweens 
-	Tween { target: T, coefficient: f64},
+	// 
+	// "epsilon" is the minimum distance from "target" at which the tween will be considered finished
+	// (xeno's paradox kind of deal) 
+	Target { target: T, coefficient: f64, epsilon: Option<f64>},
 	
 	None
+	
+	// TODO: need a type for Penner/Tweener style tweens  
 }

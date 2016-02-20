@@ -1,5 +1,5 @@
 [package]
-name = "hello-ascii-mandelbrot-rs"
+name = "fractal-term-rs"
 version = "0.1.0"
 authors = ["Lee Felarca <lee@felar.ca>"]
 

@@ -31,7 +31,7 @@ pub fn launch_thread(wrapped_command: Arc<Mutex<Command>>) -> thread::JoinHandle
 		}	    		
 	
 	    loop {
-
+ 
 			let event = rustbox.poll_event(false);  // rem, this BLOCKS
 	        // TODO: use this instead, and rip out the thread nonsense
 	        // let event = rustbox.peek_event(Duration::from_millis(5000), false); 
@@ -40,7 +40,9 @@ pub fn launch_thread(wrapped_command: Arc<Mutex<Command>>) -> thread::JoinHandle
 			*locked_command = Command::from_rustbox_event(event);
 
 	        match *locked_command {
-	        	Command::Quit => break,
+	        	Command::Quit => {
+	        		break;
+	        	}
 	        	_ => {} 
 	        }
 	    }
@@ -56,6 +58,7 @@ pub enum Command {
     ZoomContinuous(f64),
     RotationVelocity(f64),
     Size(usize, usize),
+    Poi(usize),
     Help, Stop, Reset, Quit, 
     None, 
     // TODO: use 'Option' pattern instead of 'none' ?  
@@ -69,7 +72,9 @@ impl Command {
         match event {
         
             KeyEvent(key) => {				
+                
                 match key {
+                	
                     Key::Left => Command::PositionVelocity(-1.0, 0.0),
                     Key::Right => Command::PositionVelocity(1.0, 0.0),
                     Key::Up => Command::PositionVelocity(0.0, -1.0),
@@ -84,6 +89,18 @@ impl Command {
                     Key::Char(']') | Key::Char('}') => Command::RotationVelocity(-1.0),
 
                     Key::Char('/') | Key::Char('?') | Key::Char('h') | Key::Char('H') => Command::Help,
+                    
+                    Key::Char('1') => Command::Poi(0),
+                    Key::Char('2') => Command::Poi(1),
+                    Key::Char('3') => Command::Poi(2),
+                    Key::Char('4') => Command::Poi(3),
+                    Key::Char('5') => Command::Poi(4),
+                    Key::Char('6') => Command::Poi(5),
+                    Key::Char('7') => Command::Poi(6),
+                    Key::Char('8') => Command::Poi(7),
+                    Key::Char('9') => Command::Poi(8),
+                    Key::Char('0') => Command::Poi(9),
+                    
                     Key::Char(' ') => Command::Stop,
                     Key::Char('r') => Command::Reset,
                     Key::Esc | Key::Ctrl('c') => Command::Quit,
