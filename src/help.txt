@@ -1,20 +1,24 @@
-                                    
-  MOUSE                             
-                                    
-         click | move               
-         wheel | zoom               
-                                    
-  KEYBOARD                          
-                                    
-    arrow keys | move               
-           + - | zoom               
-     shift + - | zoom continuous    
-           [ ] | rotate             
-             s | stop               
-             r | reset              
-                                    
-                                    
-                                    
-                                    
-                                    
-                                    
+                                      
+  MOUSE                               
+                                      
+         click | move                 
+         wheel | zoom                 
+                                      
+                                      
+  KEYBOARD                            
+                                      
+    arrow keys | move                 
+           + - | zoom                 
+     shift + - | zoom continuous      
+           [ ] | rotate               
+             e | toggle auto-exposure 
+           0-9 | points of interest   
+             s | stop                 
+             r | reset                
+                                      
+                                      
+                                      
+                                      
+                                      
+                                      
+                                      

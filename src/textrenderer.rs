@@ -36,7 +36,7 @@ impl<'a> TextRenderer<'a> {
 		let h = min(self.buffer.height(), values.height());
 		for y in 0..h {
 			for x in 0..w {
-				let char = ascii.value_to_char(values.get(x, y) as f64);
+				let char = ascii.to_char(values.get(x, y) as f64);
 				self.buffer.set(x, y, char);
 			}
 		}		
@@ -112,7 +112,7 @@ impl<'a> TextRenderer<'a> {
 
 // ---
 
-const DEFAULT_CHARS: &'static str = " .,:;+*=ixcaoelf?IGUOQ08%X&#@";
+const DEFAULT_CHARS: &'static str = " `'\".,~:;+*=ixcaoelf?IGUOQ08%X&#@";
 
 /**
  * 'Asciifies' values into chars.
@@ -120,57 +120,74 @@ const DEFAULT_CHARS: &'static str = " .,:;+*=ixcaoelf?IGUOQ08%X&#@";
  */
 pub struct Asciifier {
     chars: Vec<char>,  // a collection of characters that are ordered by visual 'character weight'
-    value_ceil: f64,
-    value_step: f64,
+    floor: f64,
+    ceil: f64,
+    
+    range: f64,
+    step: f64,
 }
 
 impl Asciifier {
-    pub fn new(value_ceil: f64) -> Asciifier {
+    pub fn new(floor: f64, ceil: f64) -> Asciifier {
         let mut ascii = Asciifier {
             chars: DEFAULT_CHARS.chars().collect(),
-            value_ceil: value_ceil,
-            value_step: 0.0,
+            floor: floor,
+            ceil: ceil,
+            
+            range:0.0,
+            step: 0.0,
         };
-        ascii.update_value_step();
+        ascii.update();
         ascii
     }
 
     pub fn set_chars(&mut self, charset: &String) {
         self.chars = charset.chars().collect();
-        self.update_value_step();
+        self.update();
     }
 
-    pub fn set_value_ceil(&mut self, value_ceil: f64) {
-        self.value_ceil = value_ceil;
-        self.update_value_step();
+	/**
+	 * Typical use would be to set floor to 0  
+	 * and set ceil to whatever the max value is of the data set
+	 */
+    pub fn set_range(&mut self, floor: f64, ceil: f64) {
+        self.floor = floor;
+        self.ceil = ceil;
+        self.update();
     }
-    
-    pub fn value_to_char(&self, value: f64) -> char {
-    	// TODO: can this be 'parameterized' with a function pointer?
-    	if true {
-    		self.transform_sqrt(value)
-    	} else {
-    		self.transform_linear(value)
-    	}
-    }
-    
-    pub fn transform_sqrt(&self, value: f64) -> char {
+
+    pub fn to_char(&self, mut value: f64) -> char {
     	
-    	let ratio = value / self.value_ceil;
-    	let value = ratio.sqrt();
-    	let value = value * self.value_ceil;
-        self.transform_linear(value)
-    }
-
-    pub fn transform_linear(&self, value: f64) -> char {
-        let mut i = (value / self.value_step) as usize;
+    	if value < self.floor {
+    		value = self.floor;
+    	} else if value > self.ceil {
+    		value = self.ceil;
+    	}
+    	
+    	let mut ratio = (value - self.floor) / self.range;
+    	
+    	// optional: curved with big hump (too heavy):
+    	// ratio = ratio.sqrt();
+    	
+    	// less hump:
+		ratio = (((ratio * 3.0) + 1.0) as f64).ln() * (5.0/7.0);
+		
+		// even less:
+		// ratio = ((ratio + 1.0) as f64).ln() * (10.0/7.0);
+		
+    	let mut i = (ratio / self.step) as usize;
         if i > self.chars.len() - 1 {
             i = self.chars.len() - 1;
         }
         self.chars[i]
     }
-
-    fn update_value_step(&mut self) {
-        self.value_step = self.value_ceil as f64 / self.chars.len() as f64;
+    
+	/**
+	 * Given a char set, a ceiling value and a floor value,
+	 * cache range and step values
+	 */ 
+    fn update(&mut self) {
+    	self.range = self.ceil - self.floor;
+        self.step = 1.0 / self.chars.len() as f64;
     }
 }

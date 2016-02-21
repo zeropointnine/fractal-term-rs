@@ -26,8 +26,8 @@ impl Animator<f64> {
 		a
 	}
 
-	pub fn spec(&mut self) -> &Spec<f64> {
-		&mut self.spec
+	pub fn spec(&self) -> &Spec<f64> {
+		&self.spec
 	}
 
 	pub fn set_spec(&mut self, spec: Spec<f64>) {
@@ -180,4 +180,18 @@ pub enum Spec<T> where T:Add + Copy, T::Output:Add+Copy {
 	None
 	
 	// TODO: need a type for Penner/Tweener style tweens  
+}
+
+impl<T> Spec<T> where T:Add + Copy, T::Output:Add+Copy {
+	
+	// TODO: this seems inelegant. what would be better?
+	pub fn set_target(&mut self, new_target: T) {
+		match self {
+			&mut Spec::Target { ref mut target, .. } => {
+				*target = new_target;
+			},
+			_ => panic!("Variant must be Spec::Target")
+		}
+	}
+	
 }

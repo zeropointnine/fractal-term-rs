@@ -59,7 +59,7 @@ pub enum Command {
     RotationVelocity(f64),
     Size(usize, usize),
     Poi(usize),
-    Help, Stop, Reset, Quit, 
+    AutoExposure, Help, Stop, Reset, Quit, 
     None, 
     // TODO: use 'Option' pattern instead of 'none' ?  
 }
@@ -101,6 +101,7 @@ impl Command {
                     Key::Char('9') => Command::Poi(8),
                     Key::Char('0') => Command::Poi(9),
                     
+                    Key::Char('e') | Key::Char('E') => Command::AutoExposure,
                     Key::Char(' ') => Command::Stop,
                     Key::Char('r') => Command::Reset,
                     Key::Esc | Key::Ctrl('c') => Command::Quit,

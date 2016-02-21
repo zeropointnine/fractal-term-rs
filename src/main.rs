@@ -8,6 +8,7 @@ mod matrix;
 mod complex;
 mod mandelbrot;
 mod pois;
+mod histogram;
 mod app;
 
 extern crate time;

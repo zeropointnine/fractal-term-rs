@@ -1,7 +1,6 @@
 extern crate num;
 extern crate num_cpus;
 
-use std;
 use std::thread;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc;
@@ -12,7 +11,7 @@ use self::num::traits::Float;
 
 
 pub const DEFAULT_WIDTH: f64 = 3.5;  // a reasonable width that can display the main body of the Mandelbrot set
-pub const DEFAULT_MAX_ESCAPE: u16 = 100;  
+pub const DEFAULT_MAX_ESCAPE: u16 = 500;  
 
 
 #[derive(Clone)]
@@ -157,8 +156,8 @@ impl Mandelbrot {
 			cursor = cursor + val; 
 		 	
 		 	for index_x in 0..section.width() {
-		 		
-				let value = self.get_value(cursor.x, cursor.y);					
+
+				let value = self.get_value(cursor.x, cursor.y);
 	            section.set(index_x, index_y, value); 
 				
 				// move 'right'
@@ -188,7 +187,7 @@ impl Mandelbrot {
 		val
 	}
 
-	// TEMP TEST
+// TEMP TEST julia
 //	fn get_value_xxx(&self, x: f64, y: f64) -> u16 {
 //		let c = Complex { re: x, im: y };
 //
