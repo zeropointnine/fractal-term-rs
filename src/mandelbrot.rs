@@ -11,7 +11,7 @@ use self::num::traits::Float;
 
 
 pub const DEFAULT_WIDTH: f64 = 3.5;  // a reasonable width that can display the main body of the Mandelbrot set
-pub const DEFAULT_MAX_ESCAPE: u16 = 500;  
+pub const DEFAULT_MAX_ESCAPE: u16 = 1000;  
 
 
 #[derive(Clone)]

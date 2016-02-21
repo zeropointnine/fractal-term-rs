@@ -8,6 +8,8 @@ use vector2::Vector2f;
  * TODO: Try to have Animator take a reference to the value
  *       rather than owning it, which limits its usefulness
  * TODO: Is currently in general super-unergonomic :(
+ *       Probably should try trait'ed structs rather than enum for Spec
+ * TODO: Add Penner-like params for Spec::Target
  */
 #[derive(Debug)]
 pub struct Animator<T> where T:Add + Copy, T::Output:Add+Copy{
@@ -178,8 +180,6 @@ pub enum Spec<T> where T:Add + Copy, T::Output:Add+Copy {
 	Target { target: T, coefficient: f64, epsilon: Option<f64>},
 	
 	None
-	
-	// TODO: need a type for Penner/Tweener style tweens  
 }
 
 impl<T> Spec<T> where T:Add + Copy, T::Output:Add+Copy {

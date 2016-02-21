@@ -4,6 +4,8 @@ re-add 'clamp' logic for min zoom
 re-add logic to stop when position velocity below a threshhold value
 re-add logic to stop when zoom velocity below a threshhold value
 
+make 'reset' do tween...
+
 auto-spread max range using histogram
 auto-contrast using histogram?
 make max_escape user-changable

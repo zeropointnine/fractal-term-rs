@@ -2,6 +2,7 @@ use std::cmp::{max, min};
 use ansi;
 use matrix::Matrix;
 use vector2::Vector2f;
+use asciifier::Asciifier;
 
 
 static HELP_TEXT: &'static str = include_str!("help.txt");
@@ -107,87 +108,5 @@ impl<'a> TextRenderer<'a> {
     		let s: String = row.into_iter().cloned().collect();
     		print!("{}{}", ansi::move_cursor(0, y as i32), s);
     	}
-    }
-}
-
-// ---
-
-const DEFAULT_CHARS: &'static str = " `'\".,~:;+*=ixcaoelf?IGUOQ08%X&#@";
-
-/**
- * 'Asciifies' values into chars.
- * (isn't limited to ascii charset, of course)
- */
-pub struct Asciifier {
-    chars: Vec<char>,  // a collection of characters that are ordered by visual 'character weight'
-    floor: f64,
-    ceil: f64,
-    
-    range: f64,
-    step: f64,
-}
-
-impl Asciifier {
-    pub fn new(floor: f64, ceil: f64) -> Asciifier {
-        let mut ascii = Asciifier {
-            chars: DEFAULT_CHARS.chars().collect(),
-            floor: floor,
-            ceil: ceil,
-            
-            range:0.0,
-            step: 0.0,
-        };
-        ascii.update();
-        ascii
-    }
-
-    pub fn set_chars(&mut self, charset: &String) {
-        self.chars = charset.chars().collect();
-        self.update();
-    }
-
-	/**
-	 * Typical use would be to set floor to 0  
-	 * and set ceil to whatever the max value is of the data set
-	 */
-    pub fn set_range(&mut self, floor: f64, ceil: f64) {
-        self.floor = floor;
-        self.ceil = ceil;
-        self.update();
-    }
-
-    pub fn to_char(&self, mut value: f64) -> char {
-    	
-    	if value < self.floor {
-    		value = self.floor;
-    	} else if value > self.ceil {
-    		value = self.ceil;
-    	}
-    	
-    	let mut ratio = (value - self.floor) / self.range;
-    	
-    	// optional: curved with big hump (too heavy):
-    	// ratio = ratio.sqrt();
-    	
-    	// less hump:
-		ratio = (((ratio * 3.0) + 1.0) as f64).ln() * (5.0/7.0);
-		
-		// even less:
-		// ratio = ((ratio + 1.0) as f64).ln() * (10.0/7.0);
-		
-    	let mut i = (ratio / self.step) as usize;
-        if i > self.chars.len() - 1 {
-            i = self.chars.len() - 1;
-        }
-        self.chars[i]
-    }
-    
-	/**
-	 * Given a char set, a ceiling value and a floor value,
-	 * cache range and step values
-	 */ 
-    fn update(&mut self) {
-    	self.range = self.ceil - self.floor;
-        self.step = 1.0 / self.chars.len() as f64;
     }
 }

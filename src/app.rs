@@ -1,24 +1,26 @@
 extern crate rustbox;
 use std;
 use vector2::Vector2f;
+use math;
 use animator::{Spec, Animator};
 use input::Command;
-use textrenderer::{TextRenderer, Asciifier};
+use asciifier::Asciifier;
+use textrenderer::TextRenderer;
 use matrix::Matrix;
 use mandelbrot;
 use mandelbrot::Mandelbrot;
 use pois::Pois;
 use histogram::Histogram;
 
-// rough estimate of terminal font's character aspect ratio, which we can't rly know
+// is rough estimate of terminal font's character aspect ratio, which we can't rly know:
 pub const CHARACTER_ASPECT_RATIO: f64 = 0.4;      
 const DEG: f64 = std::f64::consts::PI / 180.0;
 const ZOOM_INCREMENT: f64 = 0.015;
 const VELOCITY_RATIO_INCREMENT: f64 = 0.007;
 const ROTATION_VELOCITY_INCREMENT: f64 = 1.2 * DEG;
-const BASE_TWEEN_COEF: f64 = 0.08;
+const TARGET_COEF: f64 = 0.08;
 const FRICTION: f64 = 0.95;
-const SHOW_DEBUG_TEXT: bool = true;
+const SHOW_DEBUG_TEXT: bool = false;
 
 
 pub struct App<'a> {
@@ -42,11 +44,11 @@ pub struct App<'a> {
 	asciifier_ceil_anim: Animator<f64>,
 	is_poi_anim: u8,  // 0 = no; 1 = zooming out; 2 = zooming in
 	poi_index: usize,
+	histogram_bias: f64,
 	
 	use_autoexposure: bool,
 	has_shown_help: bool,
 	help_anim: Animator<f64>,
-	
 }
 
 
@@ -73,6 +75,7 @@ impl<'a> App<'a> {
 			asciifier_ceil_anim: Animator::<f64>::new( max_esc as f64, Spec::Target { target: max_esc as f64, coefficient: 0.100, epsilon: None } ),
 			is_poi_anim: 0,
 			poi_index: 0,
+			histogram_bias: 0.0,
 			
 			view_width: view_width,
 			view_height: view_height,
@@ -81,7 +84,7 @@ impl<'a> App<'a> {
 			
 			use_autoexposure: true,
 			has_shown_help: false,
-			help_anim: Animator::<f64>::new(1.0, Spec::None)
+			help_anim: Animator::<f64>::new(1.0, Spec::None),
 		}
 		
 	    // note, size() should be called after instantiation with the real terminal dimensions
@@ -98,14 +101,14 @@ impl<'a> App<'a> {
 					self.poi_index = index;
 					
 					self.vp_center_anim.set_spec( Spec::Target {
-							target: Vector2f { x: 0.0, y: 0.0 }, coefficient: BASE_TWEEN_COEF * 0.4, epsilon: None } );  
+							target: Vector2f { x: 0.0, y: 0.0 }, coefficient: TARGET_COEF * 0.4, epsilon: None } );  
 					// ... will only get part-way to target position before 'phase 2' starts					
 					
 					self.vp_width_anim.set_spec( Spec::Target { 
-							target: mandelbrot::DEFAULT_WIDTH, coefficient: BASE_TWEEN_COEF * 1.5, epsilon: Some(0.003) } );
+							target: mandelbrot::DEFAULT_WIDTH, coefficient: TARGET_COEF * 1.5, epsilon: Some(0.003) } );
 					// TODO: epsilon should be proportional to the size of 1 'pixel'
 					
-					// TODO: make exposure anim coef larger since the tween is fast, and then restore it
+					// TODO: make exposure anim coef larger since the tween is fast, and then restore it afterwards
 				}
 			},
 			Command::RotationVelocity(_) => { },
@@ -154,7 +157,7 @@ impl<'a> App<'a> {
 				let target_x = self.vp_center_anim.value.x + vp_center_offset.x;
 				let target_y = self.vp_center_anim.value.y + vp_center_offset.y;
 				self.vp_center_anim = Animator::<Vector2f>::new(self.vp_center_anim.value, 
-						Spec::Target {target: Vector2f { x: target_x, y: target_y }, coefficient: BASE_TWEEN_COEF, epsilon: None });					
+						Spec::Target {target: Vector2f { x: target_x, y: target_y }, coefficient: TARGET_COEF, epsilon: None });					
 			}
 
 			Command::Zoom(multiplier) => {
@@ -192,13 +195,13 @@ impl<'a> App<'a> {
 				self.is_poi_anim = 0;
 			},
 			Command::Reset => { 
-				self.vp_center_anim.value.x = 0.0;
-				self.vp_center_anim.value.y = 0.0;
-				self.vp_center_anim.set_spec( Spec::None );
-				self.vp_width_anim.value = mandelbrot::DEFAULT_WIDTH;
-				self.vp_width_anim.set_spec( Spec::None );
-				self.vp_rotation_anim.value = 0.0;
-				self.vp_rotation_anim.set_spec( Spec::None );
+				self.vp_center_anim.set_spec( 
+						Spec::Target { target: Vector2f { x: 0.0, y: 0.0 }, coefficient: TARGET_COEF, epsilon: None });					
+				self.vp_width_anim.set_spec( 
+						Spec::Target { target: mandelbrot::DEFAULT_WIDTH, coefficient: TARGET_COEF, epsilon: None } );
+				self.vp_rotation_anim.value = math::normalize_theta(self.vp_rotation_anim.value);   
+				self.vp_rotation_anim.set_spec( 
+						Spec::Target { target: 0.0, coefficient: TARGET_COEF, epsilon: None } );
 				self.is_poi_anim = 0;
 			},
 
@@ -251,10 +254,10 @@ impl<'a> App<'a> {
 					let poi = self.pois.get(self.poi_index);
 					self.vp_center_anim.set_spec( Spec::Target {
 							target: Vector2f { x: poi.0, y: poi.1 }, 
-							coefficient: BASE_TWEEN_COEF * 0.55, epsilon: None } );					
+							coefficient: TARGET_COEF * 0.55, epsilon: None } );					
 					let target_w = 1.0 / (poi.2 / mandelbrot::DEFAULT_WIDTH);
 					self.vp_width_anim.set_spec( Spec::Target { 
-							target: target_w, coefficient: BASE_TWEEN_COEF * 0.5, epsilon: None } );
+							target: target_w, coefficient: TARGET_COEF * 0.5, epsilon: None } );
 				},
 				_ => { }
 			}
@@ -262,11 +265,6 @@ impl<'a> App<'a> {
 		
 		self.asciifier_floor_anim.update();
 		self.asciifier_ceil_anim.update();
-		if self.use_autoexposure {
-			self.asciifier.set_range(self.asciifier_floor_anim.value, self.asciifier_ceil_anim.value);
-		} else {
-			self.asciifier.set_range(0.0, self.max_escape as f64);
-		}
 		
 		self.help_anim.update();
 	}
@@ -277,25 +275,34 @@ impl<'a> App<'a> {
         		vp_center_anim.value.clone(), self.vp_width_anim.value, self.vp_rotation_anim.value, 
         		&mut self.matrix);
         
-		// get current matrix's histogram value range
-		let range = self.histogram.get_range(&self.matrix, 0.050, 0.010);
-		// apply it to the asciifier anims' targets
-		// TODO: how can i set target directly while using the spec getter? this applies everywhere else 
+		// calc histogram info
+		let res = self.histogram.calc(&self.matrix, 0.050, 0.010);
+		// TODO: this is awkward. how can i set target directly while using the spec getter? this applies everywhere else 
 		self.asciifier_floor_anim.set_spec( Spec::Target 
-				{ target: range.0 as f64, coefficient: 0.100, epsilon: None } ); 
+				{ target: res.0 as f64, coefficient: 0.100, epsilon: None } ); 
 		self.asciifier_ceil_anim.set_spec( Spec::Target 
-				{ target: range.1 as f64, coefficient: 0.100, epsilon: None } ); 
+				{ target: res.1 as f64, coefficient: 0.100, epsilon: None } );
+		self.histogram_bias = if res.2 > 0.0 { 0.0 } else { res.2 };  // the positive values don't ever improve things rly
 	}
 	
 	pub fn draw_frame(&mut self, debug_info: &String) {
-		
+	
+		if self.use_autoexposure {
+			self.asciifier.set_range(self.asciifier_floor_anim.value, self.asciifier_ceil_anim.value);
+			self.asciifier.set_bias(self.histogram_bias);
+		} else {
+			self.asciifier.set_range(0.0, self.max_escape as f64);
+			self.asciifier.set_bias(0.0);
+		}
+
         self.renderer.draw_ascii_rect(&self.matrix, &self.asciifier);
 
         if SHOW_DEBUG_TEXT {
-	        self.renderer.draw_string(&debug_info, 1, self.view_height - 1);
+	        self.renderer.draw_string(&debug_info, 1, 1);
 	        
-			let s = format!(" {} {} ", self.asciifier_floor_anim.value as usize, self.asciifier_ceil_anim.value as usize);
-	        self.renderer.draw_string(&s, 2,2);
+			let s = format!(" rng {} to {} bias {:.*} ", 
+					self.asciifier.floor() as usize, self.asciifier.ceil() as usize, 5, self.asciifier.bias());
+	        self.renderer.draw_string(&s, 1,2);
         }
 
         if self.count % 60 < 10 {  // show center-point
@@ -303,7 +310,7 @@ impl<'a> App<'a> {
         	let y = self.view_height / 2;
 	        self.renderer.draw_string(&"█".to_string(), x,y);	        	
         }
-        
+         
         if self.help_anim.value <= 1.0 {
         	let z = self.get_zoom();
         	self.renderer.draw_help_dialog(self.help_anim.value, &self.vp_center_anim.value, z);

@@ -2,6 +2,7 @@ mod vector2;
 mod math;
 mod ansi;
 mod animator;
+mod asciifier;
 mod textrenderer;
 mod input;
 mod matrix;
@@ -131,7 +132,7 @@ impl Timing {
             self.avg_fps = 1.0 / (usec_per_frame as f64 / 1_000_000f64);
             self.avg_calc_time = self.cum_calc_duration as f64  / self.target_fps as f64;
             self.avg_render_time = self.cum_render_duration as f64 / self.target_fps as f64;
-			self.averages_info = format!("{:.2}fps {:.0}μs {:.0}μs", 
+			self.averages_info = format!(" fps {:.2} calc {:.0}μs render {:.0}μs ", 
 	    		self.avg_fps, self.avg_calc_time, self.avg_render_time);
 
             // reset values
