@@ -10,7 +10,7 @@ use self::num::complex::Complex;
 use self::num::traits::Float;
 
 
-pub const DEFAULT_WIDTH: f64 = 3.5;  // a reasonable width that can display the main body of the Mandelbrot set
+pub const DEFAULT_WIDTH: f64 = 4.0; // fully contains the mandelbrot set
 pub const DEFAULT_MAX_ESCAPE: u16 = 1000;  
 
 

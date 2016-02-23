@@ -1,11 +1,10 @@
-// Wrapper for a 2D matrix of values used for the Mandelbrot map data
-
-// TODO: Consider trying 1-dimensional structure
-//       This might make it more viable to do mem copy type operations, which could interesting to try...
 
 use std::fmt;
 
 
+/**
+ * Wrapper for a 2D matrix of values
+ */
 #[derive(Clone)]
 pub struct Matrix<T> {
 	vec: Vec<Vec<T>>  

@@ -1,7 +1,7 @@
 use math;
 
 
-const DEFAULT_CHARS: &'static str = " `'\".,~:;+*=ixcaoelf?IGUOQ08%X&#@";
+const DEFAULT_CHARS: &'static str = " `'\".,~:;^+*=ixcnaoelfh?IGUOQ0$8%X&#@";
 
 
 /**
@@ -79,10 +79,9 @@ impl Asciifier {
     	let ratio = math::map(self.bias, -1.0, 1.0,  biased_a, biased_b);
     	
     	// less hump:
-		// ratio = (((ratio * 3.0) + 1.0) as f64).ln() * (5.0/7.0);
-		
+		// biased_a = (((ratio * 3.0) + 1.0) as f64).ln() * (5.0/7.0);
 		// even less:
-		// ratio = ((ratio + 1.0) as f64).ln() * (10.0/7.0);
+		// ratio_b = ((ratio + 1.0) as f64).ln() * (10.0/7.0);
 		
     	let mut i = (ratio / self.step) as usize;
         if i > self.chars.len() - 1 {

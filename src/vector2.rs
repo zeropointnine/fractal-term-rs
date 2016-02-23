@@ -24,8 +24,10 @@
 
 //! Utility Class providing 2 dimensional vectors for i32, u32, and f64.
 
+
 // Lee: Changed f32 to f64
-// 		Added static len() method; rotates method
+// 		Added static len() method; rotate methods
+
 
 use std::ops::{Add, Sub, Mul, Div};
 

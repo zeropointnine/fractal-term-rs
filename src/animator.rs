@@ -49,18 +49,38 @@ impl Animator<f64> {
 		
 		match &mut self.spec {
 
-			&mut Spec::Velocity { ref mut velocity, friction } => {
+			&mut Spec::Velocity { ref mut velocity, friction, epsilon } => {
+
 				self.value = self.value + *velocity;
 				*velocity = *velocity * friction;
+
+				match epsilon {
+					Some(eps) => {
+						if velocity.abs() < eps {
+							should_set_spec_none = true;
+						}
+					},
+					_ => { }
+				}
 			},
 
 			&mut Spec::VelocityWithRotation { .. } => {
 				// not applicable
 			}
 
-			&mut Spec::Scale { ref mut scale, friction } => {
-				self.value = self.value + (self.value *  *scale);
-				*scale = *scale * friction;
+			&mut Spec::ScaleVelocity { ref mut scale_velocity, friction, epsilon } => {
+				
+				self.value = self.value + (self.value *  *scale_velocity);
+				*scale_velocity = *scale_velocity * friction;
+				
+				match epsilon {
+					Some(eps) => {
+						if scale_velocity.abs() < eps {
+							should_set_spec_none = true;
+						}
+					},
+					_ => { }
+				}
 			},
 
 			&mut Spec::Target { target, coefficient, epsilon } => { 
@@ -120,9 +140,19 @@ impl Animator<Vector2f> {
 		   
 		match &mut self.spec {
 
-			&mut Spec::Velocity { ref mut velocity, friction } => {
+			&mut Spec::Velocity { ref mut velocity, friction, epsilon } => {
+				
 				self.value = self.value + *velocity;
 				*velocity = *velocity * friction;
+				
+				match epsilon {
+					Some(eps) => {
+						if Vector2f::len(*velocity) < eps {
+							should_set_spec_none = true;
+						}
+					},
+					_ => { }
+				}
 			},
 
 			&mut Spec::VelocityWithRotation { ref mut velocity, rotation, friction } => {
@@ -164,14 +194,16 @@ impl Animator<Vector2f> {
 pub enum Spec<T> where T:Add + Copy, T::Output:Add+Copy {
 
 	// 'velocity' gets added to value; magnitude decays using 'friction'
-	Velocity { velocity: T, friction: f64 },  
+	Velocity { velocity: T, friction: f64, epsilon: Option<f64> },  
 
-	// rotated 'velocity' gets added to value; magnitude decays using 'friction'
+	// rotated 'velocity' gets added to value; magnitude decays using 'friction';
+	// rotation itself does not get animated
+	// TODO: add 'epsilon' to be consistent
 	VelocityWithRotation { velocity: T, rotation: f64, friction: f64 },  
 
-	// 'value' is modified by 'scale'; 'scale' decays towards 1.0 using 'friction'
-	// 'scale' would typically be a value very close to 1.0; think "scale velocity"
-	Scale { scale: f64, friction: f64 },        
+	// 'value' is multiplied by 1.0 + 'scale'
+	// TODO: scale_velocity can probably be of type T; then test with Vec2        
+	ScaleVelocity { scale_velocity: f64, friction: f64, epsilon: Option<f64> },
 
 	// Value moves towards target (ease-out tween)
 	// 
