@@ -29,7 +29,7 @@ pub enum FractalType {
  */
 #[derive(Clone, Copy)]
 pub struct FractalSpecs {
-	pub frac_type: FractalType,
+	pub fractal_type: FractalType,
 	pub max_val: u16,
 	pub default_width: f64,
 	pub default_center: Vector2f,
@@ -41,7 +41,7 @@ pub struct FractalSpecs {
 impl FractalSpecs {
 	pub fn new_mandelbrot_with_defaults(element_ar: f64) -> Self {
 		FractalSpecs {
-			frac_type: FractalType::Mandelbrot,
+			fractal_type: FractalType::Mandelbrot,
 			max_val: 500,
 			default_width: DEFAULT_MANDELBROT_WIDTH,
 			default_center: Vector2f::new(0.0, 0.0), 
@@ -53,7 +53,7 @@ impl FractalSpecs {
 	
 	pub fn new_julia(c: Complex64, element_ar: f64) -> Self {
 		FractalSpecs {
-			frac_type: FractalType::Julia { c: c },
+			fractal_type: FractalType::Julia { c: c },
 
 			max_val: 500,
 			default_width: DEFAULT_JULIA_WIDTH,
@@ -218,7 +218,7 @@ impl FractalCalc {
 
 	pub fn get_value(specs: &FractalSpecs, x: f64, y: f64) -> u16 {
 		// ersatz-dynamic dispatch (tried other refactoring routes which didn't work out :( )
-		match specs.frac_type {
+		match specs.fractal_type {
 			FractalType::Mandelbrot => FractalCalc::get_mandelbrot_value(x, y, specs.max_val),
 			FractalType::Julia { c } => {
 				FractalCalc::get_julia_value(&c, x, y, specs.max_val)

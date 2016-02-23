@@ -46,7 +46,7 @@ impl<'a> TextBuffer<'a> {
 	}
 	
 	/**
-	 * Takes in position as i32 so that negative values can be handled
+	 * Takes in position vals as i32 so that negative values can be handled
 	 */
 	pub fn draw_string(&mut self, string: &String, mut x: i32, y: i32) {
 		if y < 0 || y >= self.buffer.height() as i32 {

@@ -31,17 +31,19 @@ const SHOW_DEBUG_TEXT: bool = false;
 pub struct App<'a> {
 
 	views: Views,
-    text_buffer: TextBuffer<'a>,
-
 	view_width: usize,
 	view_height: usize,
 
-	has_shown_help: bool,
-	help_anim: Animator<f64>,
-
+    text_buffer: TextBuffer<'a>,
 	interview_animator: Animator<f64>,
 	interview_matrix: Matrix<u16>,
-	last_index: usize,
+	interview_last_index: usize,
+
+	has_shown_help: bool,
+	help_anim: Animator<f64>,
+	
+	feedback_string: String,
+	feedback_countdown: i32,
 
 	count: u32,
 }
@@ -55,17 +57,21 @@ impl<'a> App<'a> {
 	    let view_height = 24 as usize;  
 
 		let mut app = App {
+
 			views: Views::new(),
-		    text_buffer: TextBuffer::new(view_width, view_height),
 			view_width: view_width,
 			view_height: view_height,
+			
+		    text_buffer: TextBuffer::new(view_width, view_height),
+			interview_animator: Animator::<f64>::new(1.0, Anim::None),
+			interview_matrix: Matrix::new(view_width, view_height),
+			interview_last_index: 0,
 			
 			has_shown_help: false,
 			help_anim: Animator::<f64>::new(1.0, Anim::None),
 			
-			interview_animator: Animator::<f64>::new(1.0, Anim::None),
-			interview_matrix: Matrix::new(view_width, view_height),
-			last_index: 0,
+			feedback_string: "".to_string(),
+			feedback_countdown: 0,
 			
 			count: 0,
 		};
@@ -96,11 +102,14 @@ impl<'a> App<'a> {
 		let vel_increment = self.views.get().width_animator().value as f64 * VELOCITY_RATIO_INCREMENT;  // abstract this
 
 		// coord anim, start and stop
-		match self.views.get().specs.frac_type {
+		match self.views.get().specs.fractal_type {
 			FractalType::Mandelbrot => {
 				match *command {
 					Command::Coord(index) => {
-						self.views.get().start_coord_anim(index);
+						let b = self.views.get().start_coord_anim(index);
+						if b {
+							self.show_feedback(format!("Starting Mandelbrot zoom {}", index).to_string());
+						}
 					},
 					Command::RotationalVelocity(_) | Command::AutoExposure | Command::Help | Command::Size(..) => {} 
 					_ => {
@@ -112,7 +121,10 @@ impl<'a> App<'a> {
 			FractalType::Julia {..} => {
 				match *command {
 					Command::Coord(index) => {
-						self.views.get().start_coord_anim(index);
+						let b = self.views.get().start_coord_anim(index);
+						if b {
+							self.show_feedback(format!("Morphing to Julia set {}", index).to_string());
+						}
 					},
 					Command::Reset | Command::Stop | Command::ChangeFractalSet => {
 						self.views.get().stop_coord_anim();
@@ -183,9 +195,11 @@ impl<'a> App<'a> {
 					},
 				}
 			}
+			
 			Command::Stop => { 
 				self.stop_view_anims();
 			},
+			
 			Command::Reset => { 
 				self.views.get().position_animator().set_anim( 
 						Anim::Target { target: Vector2f { x: 0.0, y: 0.0 }, coefficient: TARGET_COEF, epsilon: None });					
@@ -199,10 +213,19 @@ impl<'a> App<'a> {
 			},
 			Command::AutoExposure => { 
 				self.views.get().toggle_use_exposure();
+				
+				let s = if self.views.get().use_exposure {
+					"[E] Auto-exposure on" 
+				} else {
+					"[E] Auto-exposure off"
+				};
+				self.show_feedback(s.to_string());
 			} 
+			
 			Command::Size(w, h) => {
 				self.set_size(w, h);
 			},
+			
 			Command::Help => {
 				if self.help_anim.value > 0.0 {
 					self.has_shown_help = true;
@@ -211,16 +234,24 @@ impl<'a> App<'a> {
 					self.anim_out_help_dialog();
 				}
 			},
+			
 			Command::ChangeFractalSet => {
 				self.stop_view_anims();
-				self.last_index = self.views.index;
+				self.interview_last_index = self.views.index;
 				self.views.index += 1;
 				if self.views.index >= self.views.vec.len() {
 					self.views.index = 0;
 				}
 				self.interview_animator.value = 0.0;
 				self.interview_animator.set_anim(
-						Anim::Velocity { velocity: 1.0/20.0, friction: 1.0, epsilon: None }); 
+						Anim::Velocity { velocity: 1.0/20.0, friction: 1.0, epsilon: None });
+				
+				let s = match self.views.get().specs.fractal_type {
+					FractalType::Mandelbrot => "[F] Fractal set: Mandelbrot",
+					FractalType::Julia { .. } => "[F] Fractal set: Julia",
+				};
+				self.show_feedback(s.to_string()); 
+				
 			}
 			_ => {}
 		}
@@ -256,8 +287,8 @@ impl<'a> App<'a> {
 		let should_crossfade = match self.interview_animator.anim() { &Anim::None => false, _ => true };
 		if should_crossfade {
 			Matrix::interpolate(self.interview_animator.value,
-					&self.views.get_num_im(self.last_index).matrix, 
-					self.views.get_num_im(self.last_index).specs.max_val,
+					&self.views.get_num_im(self.interview_last_index).matrix, 
+					self.views.get_num_im(self.interview_last_index).specs.max_val,
 					&self.views.get_im().matrix, 
 					self.views.get_im().specs.max_val,  
 					&mut self.interview_matrix);
@@ -279,21 +310,31 @@ impl<'a> App<'a> {
         
         if self.help_anim.value <= 1.0 {
         	let z = self.get_zoom();
-        	let c = match self.views.get().specs.frac_type {  
+        	let c = match self.views.get().specs.fractal_type {  
         		FractalType::Mandelbrot => None,
         		FractalType::Julia {c} => Some(c),
         	};
         	self.text_buffer.draw_help_dialog(self.help_anim.value, &self.views.get().position_animator().value, z,  c);
         }
-
+        
 		if ! self.has_shown_help {
         	let s = " [H] help ".to_string();
         	self.text_buffer.draw_string(&s, (self.view_width - s.len() - 1) as i32, 1);
+		}
+		
+		if self.feedback_countdown > 0 {
+			self.feedback_countdown -= 1;
+			self.text_buffer.draw_string(&self.feedback_string, 1, (self.view_height - 2) as i32);
 		}
    
         self.text_buffer.print();
         
         self.count += 1;
+	}
+	
+	pub fn show_feedback(&mut self, string: String) {
+		self.feedback_string = format!(" {} ", string);
+		self.feedback_countdown = 60;
 	}
 	
 	fn set_size(&mut self, w: usize, h: usize) {

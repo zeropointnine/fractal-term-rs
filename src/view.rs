@@ -30,7 +30,7 @@ pub struct View {
     exposure_info: ExposureInfo, 
 	exposure_floor_animator: Animator<f64>,
 	exposure_ceil_animator: Animator<f64>,
-	use_exposure: bool,
+	pub use_exposure: bool,
 
 	// TODO: these items overlap; confusing; needs 'subclassing' to separate them logically
 	coord_anim_index: usize,
@@ -87,8 +87,6 @@ impl View {
 		}
 	}
 	pub fn calculate(&mut self) {
-
-		// self.force_calc
 
 		if self.last_pos == self.position_animator.value && 
 				self.last_width == self.width_animator.value && 
@@ -176,7 +174,7 @@ impl View {
 		}
 
 		// coord anim 
-		match self.specs.frac_type {
+		match self.specs.fractal_type {
 			FractalType::Mandelbrot => {
 				if self.coord_anim_phase == 1 {
 					match self.width_animator.anim() {
@@ -249,22 +247,24 @@ impl View {
 		self.specs.max_val = max_val;
 	}
 
-	pub fn start_coord_anim(&mut self, index: usize) {
+	pub fn start_coord_anim(&mut self, index: usize) -> bool {
 		if self.coord_anim_phase > 0 && index == self.coord_anim_index {
-			return;
+			return false;
 		}
-		match self.specs.frac_type {
+		match self.specs.fractal_type {
 			FractalType::Mandelbrot => {
 				if index >= self.mandel_coords.len() {
-					return;
+					return false;
 				}
 				self.start_mandel_coord_anim(index);
+				return true;
 			},
 			FractalType::Julia {c} => {
 				if index >= self.julia_coords.len() {
-					return;
+					return false;
 				}
 				self.start_julia_coord_animator(c, index);
+				return true;
 			}
 		};
 	}
