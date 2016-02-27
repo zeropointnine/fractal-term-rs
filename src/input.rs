@@ -13,6 +13,7 @@ use rustbox::Event::{KeyEvent, MouseEvent, ResizeEvent};
  * which is shared with the main thread. This value acts as a flag.
  *
  * TODO: Should not be a flag so much as a queue... (eg, fast mousewheel operations lag)
+ * TODO: The use of app-specific 'Commands' as an extra abstraction has proven to be kind of an obstacle; should flatten or smth
  */
 pub fn launch_thread(wrapped_command: Arc<Mutex<Command>>) -> thread::JoinHandle<()> {
 
@@ -22,11 +23,11 @@ pub fn launch_thread(wrapped_command: Arc<Mutex<Command>>) -> thread::JoinHandle
 	    		rustbox::InitOptions { input_mode: rustbox::InputMode::EscMouse, buffer_stderr: false }) {  
 	        Result::Ok(v) => v,
 	        Result::Err(e) => panic!("{}", e),
-	    };
+	    }; 
 
 		{
 			// immediately set the command to tell app the terminal's character dimensions
-			let mut locked_command = wrapped_command.lock().unwrap();
+			let mut locked_command = wrapped_command.lock().unwrap(); 
 			*locked_command = Command::Size(rustbox.width(), rustbox.height());
 		}	    		
 	
@@ -40,7 +41,7 @@ pub fn launch_thread(wrapped_command: Arc<Mutex<Command>>) -> thread::JoinHandle
 			*locked_command = Command::from_rustbox_event(event);
 
 	        match *locked_command {
-	        	Command::Quit => {
+	        	Command::Quit => {  
 	        		break;
 	        	}
 	        	_ => {} 
@@ -52,13 +53,14 @@ pub fn launch_thread(wrapped_command: Arc<Mutex<Command>>) -> thread::JoinHandle
 
 #[derive(Debug)]
 pub enum Command {
+	ChangeFractalSet,
     PositionVelocity(f64,f64),
     PositionTween(i32, i32),
     Zoom(f64),
     ZoomContinuous(f64),
-    RotationVelocity(f64),
+    RotationalVelocity(f64),
     Size(usize, usize),
-    Poi(usize),
+    Coord(usize),
     AutoExposure, Help, Stop, Reset, Quit, 
     None, 
     // TODO: use 'Option' pattern instead of 'none' ?  
@@ -75,6 +77,8 @@ impl Command {
                 
                 match key {
                 	
+                    Key::Char('f') | Key::Char('F') => Command::ChangeFractalSet,
+
                     Key::Left => Command::PositionVelocity(-1.0, 0.0),
                     Key::Right => Command::PositionVelocity(1.0, 0.0),
                     Key::Up => Command::PositionVelocity(0.0, -1.0),
@@ -85,21 +89,21 @@ impl Command {
                     Key::Char('z') | Key::Char('-') => Command::Zoom(1.0),
 					Key::Char('Z') | Key::Char('_') => Command::ZoomContinuous(0.5),
                     
-                    Key::Char('[') | Key::Char('{') => Command::RotationVelocity(1.0),
-                    Key::Char(']') | Key::Char('}') => Command::RotationVelocity(-1.0),
+                    Key::Char('[') | Key::Char('{') => Command::RotationalVelocity(1.0),
+                    Key::Char(']') | Key::Char('}') => Command::RotationalVelocity(-1.0),
 
                     Key::Char('/') | Key::Char('?') | Key::Char('h') | Key::Char('H') => Command::Help,
                     
-                    Key::Char('1') => Command::Poi(0),
-                    Key::Char('2') => Command::Poi(1),
-                    Key::Char('3') => Command::Poi(2),
-                    Key::Char('4') => Command::Poi(3),
-                    Key::Char('5') => Command::Poi(4),
-                    Key::Char('6') => Command::Poi(5),
-                    Key::Char('7') => Command::Poi(6),
-                    Key::Char('8') => Command::Poi(7),
-                    Key::Char('9') => Command::Poi(8),
-                    Key::Char('0') => Command::Poi(9),
+                    Key::Char('1') => Command::Coord(0),
+                    Key::Char('2') => Command::Coord(1),
+                    Key::Char('3') => Command::Coord(2),
+                    Key::Char('4') => Command::Coord(3),
+                    Key::Char('5') => Command::Coord(4),
+                    Key::Char('6') => Command::Coord(5),
+                    Key::Char('7') => Command::Coord(6),
+                    Key::Char('8') => Command::Coord(7),
+                    Key::Char('9') => Command::Coord(8),
+                    Key::Char('0') => Command::Coord(9),
                     
                     Key::Char('e') | Key::Char('E') => Command::AutoExposure,
                     Key::Char(' ') => Command::Stop,

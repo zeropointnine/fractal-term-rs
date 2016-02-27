@@ -8,48 +8,104 @@ use vector2::Vector2f;
  * TODO: Try to have Animator take a reference to the value
  *       rather than owning it, which limits its usefulness
  * TODO: Is currently in general super-unergonomic :(
- *       Probably should try trait'ed structs rather than enum for Spec
- * TODO: Add Penner-like params for Spec::Target
+ *       Probably should try trait'ed structs rather than enum for Anim
+ * TODO: Add Penner-like params for Anim::Target
  */
 #[derive(Debug)]
-pub struct Animator<T> where T:Add + Copy, T::Output:Add+Copy{
+pub struct Animator<T> where T:Add + Copy, T::Output:Add+Copy {
 	pub value: T,
-	spec: Spec<T>,
-	target_is_gt: bool, // used for threshhold/completion test for Spec::Target
+	anim: Anim<T>,
+	target_is_gt: bool, // used for threshhold/completion test for Anim::Target
+}
+
+impl<T> Animator<T> where T:Add + Copy, T::Output:Add+Copy {
+
+	// set the target value of a Anim::Target
+	pub fn set_target(&mut self, targ: T) {
+		match self.anim {
+			Anim::Target { ref mut target, .. } => {
+				*target = targ;
+			},
+			_ => { panic!("Wrong variant for Anim"); }
+		}
+	}
+
+	// Convenience functions for setting data in specific Anim variants	
+
+	// set the rotation value of an Anim::Velocity
+	pub fn set_velocity(&mut self, vel: T) {
+		match self.anim {
+			Anim::Velocity { ref mut velocity, .. } => {
+				*velocity = vel;
+			},
+			_ => { panic!("Wrong variant for Anim"); }
+		}
+	}
+
+	// set the velocity value of an Anim::VelocityWithRotation
+	pub fn set_vwr_velocity(&mut self, vel: T) {
+		match self.anim {
+			Anim::VelocityWithRotation { ref mut velocity, .. } => {
+				*velocity = vel;
+			},
+			_ => { panic!("Wrong variant for Anim"); }
+		}
+	}
+
+	// set the rotation value of an Anim::VelocityWithRotation
+	pub fn set_vwr_rotation(&mut self, rot: f64) {
+		match self.anim {
+			Anim::VelocityWithRotation { ref mut rotation, .. } => {
+				*rotation = rot;
+			},
+			_ => { panic!("Wrong variant for Anim"); }
+		}
+	}
+	
+	// set the scalevelocity value of an Anim::ScaleVelocity
+	pub fn set_scale_velocity(&mut self, vel: f64) {
+		match self.anim {
+			Anim::ScaleVelocity { ref mut scale_velocity, .. } => {
+				*scale_velocity = vel;
+			},
+			_ => { panic!("Wrong variant for Anim"); }
+		}
+	}
+
 }
 
 impl Animator<f64> {
 
 	// Always use this
 	// TODO: how to disallow the creation of a 'struct literal'?
-	pub fn new(value: f64, spec: Spec<f64>) -> Animator<f64> {
-		let mut a = Animator { value: value, spec: Spec::None, target_is_gt: false };
-		a.set_spec(spec);
+	pub fn new(value: f64, anim: Anim<f64>) -> Animator<f64> {
+		let mut a = Animator { value: value, anim: Anim::None, target_is_gt: false };
+		a.set_anim(anim);
 		a
 	}
 
-	pub fn spec(&self) -> &Spec<f64> {
-		&self.spec
+	pub fn anim(&self) -> &Anim<f64> {
+		&self.anim
 	}
 
-	pub fn set_spec(&mut self, spec: Spec<f64>) {
-		match spec {
-			Spec::None => {}
-			Spec::Target { ref target, .. } => {
+	pub fn set_anim(&mut self, anim: Anim<f64>) {
+		match anim {
+			Anim::None => {}
+			Anim::Target { ref target, .. } => {
 				self.target_is_gt = target > &self.value;
 			},
 			_ => {}
 		}
-		self.spec = spec;
+		self.anim = anim;
 	}
 	
 	pub fn update(&mut self) {   
 		
-		let mut should_set_spec_none = false;
+		let mut should_set_anim_none = false;
 		
-		match &mut self.spec {
+		match &mut self.anim {
 
-			&mut Spec::Velocity { ref mut velocity, friction, epsilon } => {
+			&mut Anim::Velocity { ref mut velocity, friction, epsilon } => {
 
 				self.value = self.value + *velocity;
 				*velocity = *velocity * friction;
@@ -57,18 +113,18 @@ impl Animator<f64> {
 				match epsilon {
 					Some(eps) => {
 						if velocity.abs() < eps {
-							should_set_spec_none = true;
+							should_set_anim_none = true;
 						}
 					},
 					_ => { }
 				}
 			},
 
-			&mut Spec::VelocityWithRotation { .. } => {
+			&mut Anim::VelocityWithRotation { .. } => {
 				// not applicable
 			}
 
-			&mut Spec::ScaleVelocity { ref mut scale_velocity, friction, epsilon } => {
+			&mut Anim::ScaleVelocity { ref mut scale_velocity, friction, epsilon } => {
 				
 				self.value = self.value + (self.value *  *scale_velocity);
 				*scale_velocity = *scale_velocity * friction;
@@ -76,14 +132,14 @@ impl Animator<f64> {
 				match epsilon {
 					Some(eps) => {
 						if scale_velocity.abs() < eps {
-							should_set_spec_none = true;
+							should_set_anim_none = true;
 						}
 					},
 					_ => { }
 				}
 			},
 
-			&mut Spec::Target { target, coefficient, epsilon } => { 
+			&mut Anim::Target { target, coefficient, epsilon } => { 
 				
 				self.value = self.value + (target - self.value) * coefficient;
 				
@@ -94,14 +150,14 @@ impl Animator<f64> {
 							if self.value >= thresh {
 								// value is increasing and is almost at (or past) target
 								self.value = target;
-								should_set_spec_none = true;
+								should_set_anim_none = true;
 							}
 						} else {
 							let thresh = target + eps;
 							if self.value <= thresh {
 								// value is decreasing and is almost at (or past) target
 								self.value = target;
-								should_set_spec_none = true;
+								should_set_anim_none = true;
 							}
 						}
 					},
@@ -112,56 +168,56 @@ impl Animator<f64> {
 			_ => {}
 		}
 		
-		if should_set_spec_none {
-			self.spec = Spec::None;
+		if should_set_anim_none {
+			self.anim = Anim::None;
 		}
 	}
 }
 
 impl Animator<Vector2f> {
 	
-	pub fn new(value: Vector2f, spec: Spec<Vector2f>) -> Animator<Vector2f> {
-		let mut a = Animator { value: value, spec: Spec::None, target_is_gt: false };
-		a.set_spec(spec);
+	pub fn new(value: Vector2f, anim: Anim<Vector2f>) -> Animator<Vector2f> {
+		let mut a = Animator { value: value, anim: Anim::None, target_is_gt: false };
+		a.set_anim(anim);
 		a
 	}
 
-	pub fn spec(&mut self) -> &Spec<Vector2f> {
-		&mut self.spec
+	pub fn anim(&mut self) -> &Anim<Vector2f> {
+		&mut self.anim
 	}
 
-	pub fn set_spec(&mut self, spec: Spec<Vector2f>) {
-		self.spec = spec;
+	pub fn set_anim(&mut self, anim: Anim<Vector2f>) {
+		self.anim = anim;
 	}
 
 	pub fn update(&mut self) {
 		   
-		let mut should_set_spec_none = false;
+		let mut should_set_anim_none = false;
 		   
-		match &mut self.spec {
+		match &mut self.anim {
 
-			&mut Spec::Velocity { ref mut velocity, friction, epsilon } => {
+			&mut Anim::Velocity { ref mut velocity, friction, epsilon } => {
 				
 				self.value = self.value + *velocity;
 				*velocity = *velocity * friction;
 				
 				match epsilon {
 					Some(eps) => {
-						if Vector2f::len(*velocity) < eps {
-							should_set_spec_none = true;
+						if velocity.len() < eps {
+							should_set_anim_none = true;
 						}
 					},
 					_ => { }
 				}
 			},
 
-			&mut Spec::VelocityWithRotation { ref mut velocity, rotation, friction } => {
+			&mut Anim::VelocityWithRotation { ref mut velocity, rotation, friction } => {
 				let vel = Vector2f::rotate(*velocity, rotation);
 				self.value = self.value + vel;
 				*velocity = *velocity * friction;
 			},
 
-			&mut Spec::Target { ref target, coefficient, epsilon } => {  
+			&mut Anim::Target { ref target, coefficient, epsilon } => {  
 				self.value.x = self.value.x + (target.x - self.value.x) * coefficient;
 				self.value.y = self.value.y + (target.y - self.value.y) * coefficient;
 				
@@ -169,9 +225,9 @@ impl Animator<Vector2f> {
 					// TODO: untested
 					Some(eps) => {
 						let v = Vector2f::new(self.value.x - target.x, self.value.y - target.y);
-						if Vector2f::len(v) <= eps {
+						if v.len() <= eps {
 							self.value = *target;
-							should_set_spec_none = true;
+							should_set_anim_none = true;
 						}
 					},
 					_ => {}
@@ -181,8 +237,8 @@ impl Animator<Vector2f> {
 			_ => {}
 		}
 		
-		if should_set_spec_none {
-			self.spec = Spec::None;
+		if should_set_anim_none {
+			self.anim = Anim::None;
 		}
 	}
 }
@@ -191,7 +247,7 @@ impl Animator<Vector2f> {
  * Is the specification of how the value will be animated
  */
 #[derive(Debug)]
-pub enum Spec<T> where T:Add + Copy, T::Output:Add+Copy {
+pub enum Anim<T> where T:Add + Copy, T::Output:Add+Copy {
 
 	// 'velocity' gets added to value; magnitude decays using 'friction'
 	Velocity { velocity: T, friction: f64, epsilon: Option<f64> },  
@@ -206,24 +262,9 @@ pub enum Spec<T> where T:Add + Copy, T::Output:Add+Copy {
 	ScaleVelocity { scale_velocity: f64, friction: f64, epsilon: Option<f64> },
 
 	// Value moves towards target (ease-out tween)
-	// 
 	// "epsilon" is the minimum distance from "target" at which the tween will be considered finished
 	// (xeno's paradox kind of deal) 
 	Target { target: T, coefficient: f64, epsilon: Option<f64>},
 	
 	None
-}
-
-impl<T> Spec<T> where T:Add + Copy, T::Output:Add+Copy {
-	
-	// TODO: this seems inelegant. what would be better?
-	pub fn set_target(&mut self, new_target: T) {
-		match self {
-			&mut Spec::Target { ref mut target, .. } => {
-				*target = new_target;
-			},
-			_ => panic!("Variant must be Spec::Target")
-		}
-	}
-	
 }

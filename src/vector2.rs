@@ -26,7 +26,7 @@
 
 
 // Lee: Changed f32 to f64
-// 		Added static len() method; rotate methods
+// 		Added f64 methods
 
 
 use std::ops::{Add, Sub, Mul, Div};
@@ -56,30 +56,33 @@ impl<T> Vector2<T> {
             y: y
         }
     }
-    
-    pub fn len(ref v: Vector2<f64>) -> f64 {
-    	(v.x * v.x + v.y * v.y).sqrt()
+}
+
+// Lee
+impl Vector2<f64> {
+
+    pub fn len(&self) -> f64 {
+    	(self.x * self.x + self.y * self.y).sqrt()
     }
     
+    pub fn rotate_self(&mut self, theta: f64) {
+    	let x = self.x * theta.cos() - self.y * theta.sin();
+		let y = self.x * theta.sin() + self.y * theta.cos();
+		self.x = x;
+		self.y = y;
+    }
+
+    pub fn rotate(point: Vector2f, theta: f64) -> Vector2f {
+    	let x = point.x * theta.cos() - point.y * theta.sin();
+		let y = point.x * theta.sin() + point.y * theta.cos();
+		Vector2 { x: x, y: y }
+    }
+
     pub fn rotate_around(ref point: Vector2<f64>, ref center:Vector2<f64>, theta: f64) -> Vector2<f64> {
     	let x = center.x + (point.x - center.x) * theta.cos() - (point.y - center.y) * theta.sin();
 		let y = center.y + (point.x - center.x) * theta.sin() + (point.y - center.y) * theta.cos();
 		Vector2::new(x, y)
     }
-
-    pub fn rotate(ref point: Vector2<f64>, theta: f64) -> Vector2<f64> {
-    	let x = point.x * theta.cos() - point.y * theta.sin();
-		let y = point.x * theta.sin() + point.y * theta.cos();
-		Vector2::new(x, y)
-    }
-
-	/*
-	// TODO: compiler complains - what don't i understand? 
-    pub fn rotate_self(&mut self, theta: f64) {
-    	self.x = self.x * theta.cos() - self.y * theta.sin();
-		self.y = self.x * theta.sin() + self.y * theta.cos();
-    }
-    */
 }
 
 impl<T: Add + Copy> Add<T> for Vector2<T> {

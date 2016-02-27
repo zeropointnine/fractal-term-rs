@@ -1,12 +1,14 @@
 = TODO
 
-add 'clamp' logic for min zoom; also x/y bounds
+make View a trait and 'subclass' it to handle mandelbrot vs julia-specific "coord anim" treatments
 
-anim-in of some kind
+crossfade okay but not perfect 
+consider new step in 'pipeline', using matrix u8 
+consider more 'pipeline'-ish API
 
 make max_escape user-changable?
 
-other fractals?
+more julia formulas?
 
 run on windows someday (could be much faster); 
 would require rustbox to support it, or find another lib (rogue thing)

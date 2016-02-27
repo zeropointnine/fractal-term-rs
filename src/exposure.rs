@@ -2,51 +2,55 @@ use matrix::Matrix;
 use math;
 
 
-/**
- * Experiment
- */ 
-pub struct Histogram {
-	counts: Vec<u16>  	
+pub struct ExposureInfo {
+	pub floor: usize,
+	pub ceil: usize,
+	pub bias: f64
 }
 
-impl Histogram {
+
+/**
+ * Experiment - finds the 'meaningful' range of values in a matrix, along with a 'bias' value 
+ * Has no state, aside from keeping 'bins' vec for re-use
+ */ 
+pub struct ExposureUtil {
+	histogram: Vec<u16>  	
+}
+
+impl ExposureUtil {
 	
-	pub fn new(max_val: usize) -> Histogram {
-		let counts = vec!(u16::default(); max_val + 1);
-		let sub = vec!(u16::default(); max_val + 1); 
-		Histogram { counts: counts }
+	pub fn new(max_val: usize) -> ExposureUtil {
+		let mut exp = ExposureUtil { histogram: vec!(u16::default(); 1) };
+		exp.set_max_val(max_val);
+		exp
+	}
+	
+	pub fn set_max_val(&mut self, max_val: usize) {
+		self.histogram = vec!(u16::default(); max_val + 1);
 	}
 	
 	/**
-	 * lower/upper_thresh_ratio:
-	 * the ratio of the amount of upper and lower values to discard when calculating the range
+	 * max_val - the max value of anything in the matrix; used to create 'histogram'
+	 * lower/upper_thresh_ratio - the ratio of the amount of upper and lower values to discard when calculating the range
 	 * 
 	 * returns the range where values occur, and the 'center of gravity' ratio (-1 to +1) within that range  
 	 */ 
-	pub fn calc(&mut self, matrix: &Matrix<u16>, lower_thresh_ratio: f64, upper_thresh_ratio: f64) -> (usize, usize, f64) {
-
-		self.count(&matrix);
+	pub fn calc(&mut self, matrix: &Matrix<u16>, lower_thresh_ratio: f64, upper_thresh_ratio: f64) -> ExposureInfo {
+		self.count(&matrix);		
 		let range = self.get_range(&matrix, lower_thresh_ratio, upper_thresh_ratio);
-		let cog = self.get_center_of_gravity_ratio(range.0, range.1);
-		
-		(range.0, range.1, cog)
+		let cog = self.calc_bias(range.0, range.1);
+		ExposureInfo { floor: range.0, ceil: range.1, bias: cog }
 	}
 	
 	/**
 	 * count the number of values per 'bin'
-	 * re-uses the vec 'count'
 	 */
 	fn count(&mut self, matrix: &Matrix<u16>) {
-
-		for i in 0..self.counts.len() {
-			self.counts[i] = 0;
+		for i in 0..(self.histogram.len()) {
+			self.histogram[i] = 0;
 		}
-
-		for y in 0..matrix.height() {
-			for x in 0..matrix.width() {
-				let i = matrix.get(x, y) as usize;
-				self.counts[i] += 1; 
-			}
+		for val in matrix {
+			self.histogram[val as usize] += 1;
 		}
 	}
 
@@ -59,10 +63,14 @@ impl Histogram {
 		let sum_thresh =  (matrix.width() as f64 * matrix.height() as f64) * lower_thresh_ratio;
 		let mut lower_index = 0;
 		let mut sum = 0;
-		for i in 0..self.counts.len() {
-			sum += self.counts[i];
+		for i in 0..self.histogram.len() {
+			sum += self.histogram[i];
 			if sum as f64 > sum_thresh {
-				lower_index =  if i == 0 { 0 as usize } else { i - 1 };  // rewind by 1
+				lower_index =  if i <= 1 { 
+					0 as usize 
+				} else { 
+					i - 1  // rewind by 1
+				};  
 				break;
 			}
 		} 
@@ -70,10 +78,16 @@ impl Histogram {
 		let sum_thresh =  (matrix.width() as f64 * matrix.height() as f64) * upper_thresh_ratio;
 		let mut upper_index = 0;		
 		let mut sum = 0;
-		for i in (0..self.counts.len()).rev() {
-			sum += self.counts[i];
+		for i in (0..self.histogram.len()).rev() {
+			sum += self.histogram[i];
 			if sum as f64 > sum_thresh {
-				upper_index =  if i == self.counts.len() - 1 { self.counts.len() - 1 } else { i - 1 };
+				upper_index =  if i == self.histogram.len() - 1 { 
+					self.histogram.len() - 1 
+				} else if i <= 1 { 
+					0 
+				} else { 
+					i - 1 
+				};
 				break;
 			}
 		} 
@@ -84,13 +98,13 @@ impl Histogram {
 	/**
 	 * Returns a value in range (-1, +1) 
 	 */
-	fn get_center_of_gravity_ratio(&mut self, lower: usize, upper: usize) -> f64 {
+	fn calc_bias(&mut self, lower: usize, upper: usize) -> f64 {
 
 		if lower == upper {
 			return 0.0;
 		}
 		if upper == lower + 1 {
-			return if self.counts[lower] < self.counts[upper] {
+			return if self.histogram[lower] < self.histogram[upper] {
 				return -1.0;
 			} else {
 				return 1.0;
@@ -100,7 +114,7 @@ impl Histogram {
 		// get sum of all values
 		let mut sum = 0u64;
 		for i in lower..(upper + 1) {
-			sum += self.counts[i] as u64;
+			sum += self.histogram[i] as u64;
 		}
 		
 		// find index at the 16%, 50%, 84%
@@ -108,9 +122,10 @@ impl Histogram {
 		let thresh = sum as f64 * (0.5 - 0.34);
 		let mut s = 0;
 		for i in lower..(upper + 1) {
-			s += self.counts[i] as u64;
+			s += self.histogram[i] as u64;
 			if s as f64 > thresh {
-				i_a = i;
+				// is like 16th percentile; 1 standard deviation
+				i_a = i;  
 				break;
 			}
 		}
@@ -118,9 +133,10 @@ impl Histogram {
 		let thresh = sum as f64 * 0.5;
 		let mut s = 0;
 		for i in lower..(upper + 1) {
-			s += self.counts[i] as u64;
+			s += self.histogram[i] as u64;
 			if s as f64 > thresh {
-				i_b = i;
+				// think 'center of gravity'
+				i_b = i;  
 				break;
 			}
 		}
@@ -128,16 +144,18 @@ impl Histogram {
 		let thresh = sum as f64 * (0.5 + 0.34);
 		let mut s = 0;
 		for i in lower..(upper + 1) {
-			s += self.counts[i] as u64;
+			s += self.histogram[i] as u64;
 			if s as f64 > thresh {
-				i_c = i;
+				// is like 84th percentile
+				i_c = i;  
 				break;
 			}
 		}
 		
+		// make hand-wavey value using the above to represent 'bias'
 		let a = math::map(i_a as f64, lower as f64, (upper - 1) as f64, -1.0, 1.0);
 		let b = math::map(i_b as f64, lower as f64, (upper - 1) as f64, -1.0, 1.0);
 		let c = math::map(i_c as f64, lower as f64, (upper - 1) as f64, -1.0, 1.0);
-		return (a + b + c) / 3.0;  // good enuf
+		return (a + b + c) / 3.0;
 	}
 }

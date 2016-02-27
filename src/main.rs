@@ -1,15 +1,16 @@
+mod constants;
 mod vector2;
 mod math;
 mod ansi;
 mod animator;
 mod asciifier;
-mod textrenderer;
+mod textbuffer;
 mod input;
 mod matrix;
-mod complex;
-mod mandelbrot;
-mod pois;
-mod histogram;
+mod fractalcalc;
+mod view;
+mod coords;
+mod exposure;
 mod app;
 
 extern crate time;
@@ -66,14 +67,15 @@ fn main() {
 		app.calculate();
         timing.calc_end();
 
-		timing.render_start();
-		app.draw_frame(&timing.averages_info);
-		timing.render_end();			
+		timing.draw_start();
+		app.draw(&timing.averages_info);
+		timing.draw_end();			
 
         thread::sleep(timing.get_sleep_duration());
 	}
     
-    // quit 
+    // quit
+    print!("{}", ansi::CLEAR); 
     let _ = handle.join();
 } 
 
@@ -85,16 +87,16 @@ struct Timing {
     
     frame_start_time:PreciseTime,
     calc_start_time:PreciseTime,
-    render_start_time:PreciseTime,
+    draw_start_time:PreciseTime,
 
     frame_num: i32,
     averages_start_time: PreciseTime,
 
     cum_calc_duration: i64,
-    cum_render_duration: i64, 
+    cum_draw_duration: i64, 
     avg_fps: f64,
     avg_calc_time: f64,
-    avg_render_time: f64,
+    avg_draw_time: f64,
     averages_info: String,
 }
 
@@ -107,16 +109,16 @@ impl Timing {
 			
 			frame_start_time: PreciseTime::now(),
 		    calc_start_time: PreciseTime::now(),
-		    render_start_time: PreciseTime::now(),
+		    draw_start_time: PreciseTime::now(),
 
 			frame_num: -1,
 			averages_start_time: PreciseTime::now(),
 			
 			cum_calc_duration: 0,
-			cum_render_duration: 0,
+			cum_draw_duration: 0,
 			avg_fps: 0.0,
 			avg_calc_time: 0.0,
-			avg_render_time: 0.0,
+			avg_draw_time: 0.0,
 			averages_info: "".to_string(),
 		}
 	}
@@ -131,14 +133,14 @@ impl Timing {
             let usec_per_frame = usec as f64 / self.target_fps as f64;
             self.avg_fps = 1.0 / (usec_per_frame as f64 / 1_000_000f64);
             self.avg_calc_time = self.cum_calc_duration as f64  / self.target_fps as f64;
-            self.avg_render_time = self.cum_render_duration as f64 / self.target_fps as f64;
+            self.avg_draw_time = self.cum_draw_duration as f64 / self.target_fps as f64;
 			self.averages_info = format!(" fps {:.2} calc {:.0}μs render {:.0}μs ", 
-	    		self.avg_fps, self.avg_calc_time, self.avg_render_time);
+	    		self.avg_fps, self.avg_calc_time, self.avg_draw_time);
 
             // reset values
             self.averages_start_time = self.frame_start_time;
             self.cum_calc_duration = 0;
-            self.cum_render_duration = 0;
+            self.cum_draw_duration = 0;
         }
 	}
 	
@@ -150,12 +152,12 @@ impl Timing {
 		self.cum_calc_duration += dur 
 	}
 	
-	pub fn render_start(&mut self) {
-		self.render_start_time = PreciseTime::now();
+	pub fn draw_start(&mut self) {
+		self.draw_start_time = PreciseTime::now();
 	}
-	pub fn render_end(&mut self) {
-		let dur = self.render_start_time.to(PreciseTime::now()).num_microseconds().unwrap();
-		self.cum_render_duration += dur 
+	pub fn draw_end(&mut self) {
+		let dur = self.draw_start_time.to(PreciseTime::now()).num_microseconds().unwrap();
+		self.cum_draw_duration += dur 
 	}
 	
 	/**

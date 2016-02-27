@@ -1,8 +1,11 @@
 use math;
 
+// simple version
+// const DEFAULT_CHARS: &'static str = " .,:;i1tfLCG08@";
 
-const DEFAULT_CHARS: &'static str = " `'\".,~:;^+*=ixcnaoelfh?IGUOQ0$8%X&#@";
-
+// calibrated vaguely for Monaco 12
+const DEFAULT_CHARS: &'static str = " .,`'\"^:;-~=+*ixcnaeomlfh1IEUOQWX%#$&@";
+ 
 
 /**
  * 'Asciifies' values into chars.

@@ -1,0 +1,33 @@
+_______________________________________________
+                                               
+  fractal-term-r                               
+  github.com/zeropointnine/fractal-term-rs     
+                                               
+                                               
+  MOUSE                                        
+                                               
+       click | move                            
+       wheel | zoom                            
+                                               
+  KEYBOARD                                     
+                                               
+           f | toggle fractal sets             
+             |                                 
+  arrow keys | move                            
+         + - | zoom                            
+   shift + - | zoom continuous                 
+         [ ] | rotate                          
+           e | toggle auto-exposure            
+           s | stop                            
+           r | reset                           
+             |                                 
+         0-9 | mandelbrot points of interest,  
+             | or julia variants               
+                                               
+                                               
+                                               
+                                               
+                                               
+                                               
+                                               
+_______________________________________________
