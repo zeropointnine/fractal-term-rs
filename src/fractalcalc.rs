@@ -10,7 +10,7 @@ use self::num::complex::{Complex, Complex64};
 use self::num::traits::Float;
 
 
-const DEFAULT_MANDELBROT_WIDTH: f64 = 4.0; // fully contains the mandelbrot set
+const DEFAULT_MANDELBROT_WIDTH: f64 = 4.0;
 const DEFAULT_JULIA_WIDTH: f64 = 4.0; 
 
 
@@ -81,7 +81,7 @@ impl FractalCalc {
 		ht		
 	}
 
-	pub fn calc_matrix(specs: &FractalSpecs, center: Vector2f, width: f64, rotation: f64, matrix: &mut Matrix<u16>) {
+	pub fn write_matrix(specs: &FractalSpecs, center: Vector2f, width: f64, rotation: f64, matrix: &mut Matrix<u16>) {
 		if specs.use_multi_threads {
 			FractalCalc::write_matrix_mt(&specs, center, width, rotation, matrix);
 		} else {

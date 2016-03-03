@@ -14,7 +14,7 @@ static HELP_TEXT: &'static str = include_str!("res/help.txt");
  * Keeps a buffer which is a Matrix of chars, and prints a screenful to text to stdout
  */
 pub struct TextBuffer<'a> {
-    buffer: Matrix<char>,
+    pub buffer: Matrix<char>,
    	help_text: Vec<&'a str>,
 }
 
@@ -31,20 +31,6 @@ impl<'a> TextBuffer<'a> {
 		self.buffer = Matrix::new(w, h);
 	}
 
-	/**
-	 * 
-	 */
-	pub fn draw_asciified_rect(&mut self, values: &Matrix<u16>, ascii: &Asciifier) {
-		let w = min(self.buffer.width(), values.width());
-		let h = min(self.buffer.height(), values.height());
-		for y in 0..h {
-			for x in 0..w {
-				let char = ascii.to_char(values.get(x, y) as f64);
-				self.buffer.set(x, y, char);
-			}
-		}		
-	}
-	
 	/**
 	 * Takes in position vals as i32 so that negative values can be handled
 	 */
@@ -126,7 +112,6 @@ impl<'a> TextBuffer<'a> {
 
 	/**
 	 * Prints a screenful of text using the buffer data, in one single pass
-	 * (minimizes/eliminates flicker)  
 	 */
     pub fn print(&self) {
     	for y in 0..self.buffer.height() {

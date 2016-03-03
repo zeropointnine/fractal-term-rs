@@ -1,4 +1,6 @@
+use std::cmp::{max, min};
 use math;
+use matrix::Matrix;
 
 // simple version
 // const DEFAULT_CHARS: &'static str = " .,:;i1tfLCG08@";
@@ -36,6 +38,40 @@ impl Asciifier {
         ascii
     }
 
+	pub fn write_index_matrix(&self, fractal_matrix: &Matrix<u16>, index_matrix: &mut Matrix<u8>) {
+		assert!(fractal_matrix.width() == index_matrix.width() && fractal_matrix.height() == index_matrix.height()); 
+		for y in 0..fractal_matrix.height() {
+			for x in 0..fractal_matrix.width() {
+				let val =  fractal_matrix.get(x, y);
+				let i = self.to_char_index(val as f64);
+				index_matrix.set(x, y, i);
+			}
+		}
+	}
+	
+	pub fn write_textbuffer_with_transform(&self, fractal_matrix: &Matrix<u16>, text_buffer: &mut Matrix<char>) {
+		let w = min(text_buffer.width(), fractal_matrix.width());
+		let h = min(text_buffer.height(), fractal_matrix.height());
+		for y in 0..h {
+			for x in 0..w {
+				let char = self.to_char(fractal_matrix.get(x, y) as f64);
+				text_buffer.set(x, y, char);
+			}
+		}		
+	}
+	
+	pub fn write_textbuffer(&self, index_matrix: &Matrix<u8>, text_buffer: &mut Matrix<char>) {
+		let w = min(text_buffer.width(), index_matrix.width());
+		let h = min(text_buffer.height(), index_matrix.height());
+		for y in 0..h {
+			for x in 0..w {
+				let i = index_matrix.get(x, y);
+				let char = self.chars[i as usize];
+				text_buffer.set(x, y, char);
+			}
+		}		
+	}
+
     pub fn set_chars(&mut self, charset: &String) {
         self.chars = charset.chars().collect();
         self.update();
@@ -66,8 +102,8 @@ impl Asciifier {
     	self.bias = bias;
     }
 
-    pub fn to_char(&self, mut value: f64) -> char {
-    	
+    pub fn to_char_index(&self, mut value: f64) -> u8 {
+
     	if value < self.floor {
     		value = self.floor;
     	} else if value > self.ceil {
@@ -90,7 +126,12 @@ impl Asciifier {
         if i > self.chars.len() - 1 {
             i = self.chars.len() - 1;
         }
-        self.chars[i]
+        i as u8
+    }
+    
+    pub fn to_char(&self, value: f64) -> char {
+		let i = self.to_char_index(value);
+		self.chars[i as usize]
     }
     
 	/**

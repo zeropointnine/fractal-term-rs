@@ -1,10 +1,8 @@
 = TODO
 
-make View a trait and 'subclass' it to handle mandelbrot vs julia-specific "coord anim" treatments
+*** make View a trait and 'subclass' it to handle mandelbrot vs julia-specific "coord anim" treatments
 
-crossfade okay but not perfect 
-consider new step in 'pipeline', using matrix u8 
-consider more 'pipeline'-ish API
+default_center isn't being used seems like
 
 make max_escape user-changable?
 

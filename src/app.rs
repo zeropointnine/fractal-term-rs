@@ -1,9 +1,7 @@
 extern crate rustbox;
 extern crate num; 
-use std;
 use constants;
 use vector2::Vector2f;
-use math;
 use animator::{Anim, Animator};
 use input::Command;
 use textbuffer::TextBuffer;
@@ -17,26 +15,15 @@ use self::num::complex::{Complex64};
 // rough estimate of terminal character a/r, which we can't rly know
 pub const CHARACTER_ASPECT_RATIO: f64 = 0.4;
 
-const DEG: f64 = std::f64::consts::PI / 180.0;
-
-const ZOOM_INCREMENT: f64 = 0.015;
-const VELOCITY_RATIO_INCREMENT: f64 = 0.007;
-const ROTATIONAL_VELOCITY_INCREMENT: f64 = 1.2 * DEG;
-pub const TARGET_COEF: f64 = 0.08;
-const FRICTION: f64 = 0.95;
-
-const SHOW_DEBUG_TEXT: bool = false;
-
 
 pub struct App<'a> {
-
 	views: Views,
 	view_width: usize,
 	view_height: usize,
 
     text_buffer: TextBuffer<'a>,
 	interview_animator: Animator<f64>,
-	interview_matrix: Matrix<u16>,
+	interview_matrix: Matrix<u8>,
 	interview_last_index: usize,
 
 	has_shown_help: bool,
@@ -76,6 +63,7 @@ impl<'a> App<'a> {
 			count: 0,
 		};
 		
+		// add the views to app
 		let m1 = View::new(view_width, view_height, FractalSpecs::new_mandelbrot_with_defaults(CHARACTER_ASPECT_RATIO));
 		app.views.vec.push(Box::new(m1));
 
@@ -90,6 +78,7 @@ impl<'a> App<'a> {
 		app.views.index = 0;
 
 		app
+
 	    // ... note, set_size() must be called after instantiation, with the real terminal dimensions
     }
 
@@ -99,7 +88,7 @@ impl<'a> App<'a> {
 	
 	pub fn handle_command(&mut self, command: &Command) {
 
-		let vel_increment = self.views.get().width_animator().value as f64 * VELOCITY_RATIO_INCREMENT;  // abstract this
+		let vel_increment = self.views.get().width_animator().value as f64 * constants::VELOCITY_RATIO_INCREMENT;  // abstract this
 
 		// coord anim, start and stop
 		match self.views.get().specs.fractal_type {
@@ -145,7 +134,7 @@ impl<'a> App<'a> {
 					},
 					_ => {
 						self.views.get().position_animator().set_anim(Anim::VelocityWithRotation { 
-								velocity: increment, rotation: 0.0, friction: FRICTION });
+								velocity: increment, rotation: 0.0, friction: constants::FRICTION });
 					}
 				};
 			},
@@ -167,31 +156,31 @@ impl<'a> App<'a> {
 				let target_x = self.views.get().position_animator().value.x + vp_center_offset.x;
 				let target_y = self.views.get().position_animator().value.y + vp_center_offset.y;
 				self.views.get().position_animator().set_anim(
-						Anim::Target {target: Vector2f { x: target_x, y: target_y }, coefficient: TARGET_COEF, epsilon: None } );
+						Anim::Target {target: Vector2f { x: target_x, y: target_y }, coefficient: constants::TARGET_COEF, epsilon: None } );
 			}
 			Command::Zoom(multiplier) => {
-				let increment = ZOOM_INCREMENT * multiplier;
+				let increment = constants::ZOOM_INCREMENT * multiplier;
 				let current = match self.views.get().width_animator().anim() {
 					&Anim::ScaleVelocity { scale_velocity, .. } => scale_velocity,
 					_ => 0.0,
 				};
 				self.views.get().width_animator().set_anim( Anim::ScaleVelocity { 
-						scale_velocity: current + increment, friction: FRICTION, epsilon: None } );
+						scale_velocity: current + increment, friction: constants::FRICTION, epsilon: None } );
 			},
 			Command::ZoomContinuous(multiplier) => {
-				let increment = ZOOM_INCREMENT * multiplier;
+				let increment = constants::ZOOM_INCREMENT * multiplier;
 				self.views.get().width_animator().set_anim( Anim::ScaleVelocity { 
 						scale_velocity: increment, friction: 1.0, epsilon: None } );
 			},
 			Command::RotationalVelocity(multiplier) => {
-				let increment = ROTATIONAL_VELOCITY_INCREMENT * multiplier;
+				let increment = constants::ROTATIONAL_VELOCITY_INCREMENT * multiplier;
 				match self.views.get().rotation_animator().anim() {
 					&Anim::Velocity { velocity, .. } => {
 						self.views.get().rotation_animator().set_velocity(velocity + increment);
 					},
 					_ => {
 						self.views.get().rotation_animator().set_anim( Anim::Velocity { 
-								velocity: increment, friction: FRICTION, epsilon: None } );
+								velocity: increment, friction: constants::FRICTION, epsilon: None } );
 					},
 				}
 			}
@@ -201,15 +190,7 @@ impl<'a> App<'a> {
 			},
 			
 			Command::Reset => { 
-				self.views.get().position_animator().set_anim( 
-						Anim::Target { target: Vector2f { x: 0.0, y: 0.0 }, coefficient: TARGET_COEF, epsilon: None });					
-				let dw = self.views.get().specs.default_width;
-				self.views.get().width_animator().set_anim( Anim::Target { 
-						target: dw, coefficient: TARGET_COEF, epsilon: None } );
-				self.views.get().rotation_animator().value = math::normalize_theta(self.views.get().rotation_animator().value);   
-				self.views.get().rotation_animator().set_anim( 
-						Anim::Target { target: 0.0, coefficient: TARGET_COEF, epsilon: None } );
-				self.views.get().stop_coord_anim();
+				self.views.get().anim_to_home();
 			},
 			Command::AutoExposure => { 
 				self.views.get().toggle_use_exposure();
@@ -274,8 +255,7 @@ impl<'a> App<'a> {
 			self.interview_animator.set_anim(Anim::None);
 		}
 		
-		self.help_anim.update();
-		
+		self.help_anim.update();		
 	}
 	
 	pub fn calculate(&mut self) {
@@ -287,17 +267,15 @@ impl<'a> App<'a> {
 		let should_crossfade = match self.interview_animator.anim() { &Anim::None => false, _ => true };
 		if should_crossfade {
 			Matrix::interpolate(self.interview_animator.value,
-					&self.views.get_num_im(self.interview_last_index).matrix, 
-					self.views.get_num_im(self.interview_last_index).specs.max_val,
-					&self.views.get_im().matrix, 
-					self.views.get_im().specs.max_val,  
+					&self.views.get_num_im(self.interview_last_index).index_matrix, 
+					&self.views.get_im().index_matrix, 
 					&mut self.interview_matrix);
-			self.text_buffer.draw_asciified_rect(&self.interview_matrix, &self.views.get_im().asciifier);
+       		self.views.get_im().asciifier.write_textbuffer(&self.interview_matrix, &mut self.text_buffer.buffer);
 		} else {
-	        self.text_buffer.draw_asciified_rect(&self.views.get_im().matrix, &self.views.get_im().asciifier);
+       		self.views.get_im().asciifier.write_textbuffer(&self.views.get_im().index_matrix, &mut self.text_buffer.buffer);
 		}
 
-        if SHOW_DEBUG_TEXT {
+        if constants::SHOW_DEBUG_TEXT {
 	        self.text_buffer.draw_string(&debug_info, 1, 1);
 	        self.text_buffer.draw_string(&self.views.get().debug, 1,2);
         }

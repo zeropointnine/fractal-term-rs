@@ -13,7 +13,7 @@ use rustbox::Event::{KeyEvent, MouseEvent, ResizeEvent};
  * which is shared with the main thread. This value acts as a flag.
  *
  * TODO: Should not be a flag so much as a queue... (eg, fast mousewheel operations lag)
- * TODO: The use of app-specific 'Commands' as an extra abstraction has proven to be kind of an obstacle; should flatten or smth
+ * TODO: The use of app-specific 'Commands' as an extra abstraction has proven to be not all that useful; should flatten or smth
  */
 pub fn launch_thread(wrapped_command: Arc<Mutex<Command>>) -> thread::JoinHandle<()> {
 
@@ -107,7 +107,7 @@ impl Command {
                     
                     Key::Char('e') | Key::Char('E') => Command::AutoExposure,
                     Key::Char(' ') => Command::Stop,
-                    Key::Char('r') => Command::Reset,
+                    Key::Char('r') | Key::Char('R') => Command::Reset,
                     Key::Esc | Key::Ctrl('c') => Command::Quit,
                     
                     _ => Command::None,
@@ -120,7 +120,6 @@ impl Command {
 					Mouse::WheelDown => Command::Zoom(0.3),
 					Mouse::Left => Command::PositionTween(x, y),
 					_ => Command::None
-					
 				}                
 	        },
 		    

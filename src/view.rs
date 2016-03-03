@@ -2,6 +2,7 @@ extern crate num;
 extern crate num_cpus;
 
 use constants;
+use math;
 use app;
 use vector2::Vector2f;
 use matrix::Matrix;
@@ -18,7 +19,9 @@ use self::num::complex::{Complex64};
  */
 pub struct View {
 
-    pub matrix: Matrix<u16>,
+    pub fractal_matrix: Matrix<u16>,
+    pub index_matrix: Matrix<u8>,
+    
     pub asciifier: Asciifier,
 	pub specs: FractalSpecs,
 
@@ -46,6 +49,7 @@ pub struct View {
 	last_rotation: f64,
 	last_julia_coord: Vector2f,
 	force_calc: bool,
+	force_exposure_val: bool,
 
 	pub debug:String
 }
@@ -57,15 +61,16 @@ impl View {
 		View {
 			specs: specs,
 			max_val: specs.max_val,
-		    matrix: Matrix::new(matrix_w, matrix_h),
+		    fractal_matrix: Matrix::new(matrix_w, matrix_h),
+		    index_matrix: Matrix::new(matrix_w, matrix_h),
 
 			position_animator: Animator::<Vector2f>::new(Vector2f::new(0.0, 0.0), Anim::None),
 			width_animator: Animator::<f64>::new(specs.default_width, Anim::None),
 			rotation_animator: Animator::<f64>::new(0.0, Anim::None),
 
 		    asciifier: Asciifier::new(0.0, specs.max_val as f64),
-			exposure_floor_animator: Animator::<f64>::new( 0.0, Anim::Target { target: 0.0, coefficient: 0.1, epsilon: None } ),
-			exposure_ceil_animator: Animator::<f64>::new( specs.max_val as f64, Anim::Target { target: specs.max_val as f64, coefficient: 0.1, epsilon: None } ),
+			exposure_floor_animator: Animator::<f64>::new( 0.0, Anim::Target { target: 0.0, coefficient: 0.1, epsilon: Some(0.01) } ),
+			exposure_ceil_animator: Animator::<f64>::new( specs.max_val as f64, Anim::Target { target: specs.max_val as f64, coefficient: 0.1, epsilon: Some(0.01) } ),
 
 		    exposure_util: ExposureUtil::new(specs.max_val as usize),
 			exposure_info: ExposureInfo { floor: 0, ceil: specs.max_val as usize, bias: 0.0 },
@@ -82,21 +87,46 @@ impl View {
 			last_rotation: 0.0,
 			last_julia_coord: Vector2f::new(0.0, 0.0),
 			force_calc: true,
+			force_exposure_val: true,
 			
 			debug: "".to_string()
 		}
 	}
 	pub fn calculate(&mut self) {
 
-		if self.last_pos == self.position_animator.value && 
-				self.last_width == self.width_animator.value && 
-				self.last_rotation == self.rotation_animator.value &&
-				self.last_julia_coord == self.julia_coord_animator.value && ! self.force_calc {
-			return;
+		let b = self.last_pos != self.position_animator.value || 
+				self.last_width != self.width_animator.value ||
+				self.last_rotation != self.rotation_animator.value ||
+				self.last_julia_coord != self.julia_coord_animator.value || 
+				self.force_calc;
+
+		if b {
+			// calc fractal matrix using positional info
+			FractalCalc::write_matrix(&self.specs, self.position_animator.value.clone(), 
+					self.width_animator.value, self.rotation_animator.value, &mut self.fractal_matrix);
+	
+			// calc 'exposure info' from matrix
+			self.exposure_info = self.exposure_util.calc(&self.fractal_matrix, 0.040, 0.010);
 		}
 
-		FractalCalc::calc_matrix(&self.specs, self.position_animator.value.clone(), self.width_animator.value, self.rotation_animator.value, &mut self.matrix);
-		self.exposure_info = self.exposure_util.calc(&self.matrix, 0.040, 0.010);
+		// apply exposure info to asciifer		
+		let ascii_was = (self.asciifier.floor(), self.asciifier.ceil(), self.asciifier.bias());
+		self.asciifier.set_range(self.exposure_floor_animator.value, self.exposure_ceil_animator.value);
+		let bias = if self.use_exposure {
+			if self.exposure_info.bias > 0.0 { self.exposure_info.bias } else { 0.0 }
+		} else {
+			0.0
+		};
+		self.asciifier.set_bias(bias);  
+
+		// calc char matrix using fractal_matrix + asciifier
+		let b2 = b || 
+				self.asciifier.floor() != ascii_was.0 ||
+				self.asciifier.ceil() != ascii_was.1 ||
+				self.asciifier.bias() != ascii_was.2; 
+		if b2 {
+			self.asciifier.write_index_matrix(&self.fractal_matrix, &mut self.index_matrix);
+		}
 
 		self.debug = format!(" exp {} {} {}", self.exposure_info.floor, self.exposure_info.ceil, self.exposure_info.bias);
 		
@@ -110,7 +140,6 @@ impl View {
 	pub fn update(&mut self) {
 
 		// width (zoom)
-		let orig = self.width_animator.value;
 		self.width_animator.update();
 		
 		// width bounds check
@@ -125,7 +154,6 @@ impl View {
 		}
 
 		// rotation
-		let orig = self.rotation_animator.value;
 		self.rotation_animator.update();
 
 		// and update position anim's rotation value 
@@ -137,7 +165,6 @@ impl View {
 		}
 		
 		// position
-		let orig = self.position_animator.value.clone();
 		self.position_animator.update();
 
 		// position bounds check
@@ -151,7 +178,7 @@ impl View {
 			self.position_animator.value.x = w;
 			b = true;
 		}
-		let h = FractalCalc::get_height(&self.specs, self.matrix.width(), self.matrix.height(), self.specs.default_width);
+		let h = FractalCalc::get_height(&self.specs, self.fractal_matrix.width(), self.fractal_matrix.height(), self.specs.default_width);
 		let h = h / 2.0;
 		if self.position_animator.value.y < -h {
 			self.position_animator.value.y = -h;
@@ -188,7 +215,7 @@ impl View {
 					match self.width_animator.anim() {
 						&Anim::Target { target, .. } => {
 							// end condition
-							let thresh = (self.width_animator.value / self.matrix.width() as f64) * 0.1;
+							let thresh = (self.width_animator.value / self.fractal_matrix.width() as f64) * 0.1;
 							let distance = (target - self.width_animator.value).abs();
 							self.debug = format!(" mandel thresh mult {} ", distance / thresh);
 							if distance  < thresh {
@@ -203,7 +230,7 @@ impl View {
 			FractalType::Julia {ref mut c} => {
 				if self.coord_anim_phase == 1 {
 					match self.julia_coord_animator.anim() {
-						&Anim::Target { target, .. } => {
+						&Anim::Target { .. } => {
 							// update julia anim, and copy over value 
 							self.julia_coord_animator.update();
 							c.re = self.julia_coord_animator.value.x;
@@ -216,28 +243,29 @@ impl View {
 		}
 
 		// exposure 
+		let a; 
+		let b;
 		if self.use_exposure {
-			self.exposure_floor_animator.set_target(self.exposure_info.floor as f64);
-			self.exposure_ceil_animator.set_target(self.exposure_info.ceil as f64);
+			a = self.exposure_info.floor as f64;
+			b = self.exposure_info.ceil as f64;
 		} else {
-			self.exposure_floor_animator.set_target(0.0);
-			self.exposure_ceil_animator.set_target(self.max_val as f64);
+			a = 0.0;
+			b = self.max_val as f64;;
+		}
+		self.set_exposure_anim_targets(a, b);
+		if self.force_exposure_val {
+			// TODO: this is not working on-startup
+			self.exposure_floor_animator.value = a;
+			self.exposure_ceil_animator.value = b;
+			self.force_exposure_val = false;
 		}
 		self.exposure_floor_animator.update();
 		self.exposure_ceil_animator.update();
-
-		// apply exposure info to asciifer		
-		self.asciifier.set_range(self.exposure_floor_animator.value, self.exposure_ceil_animator.value);
-		let bias = if self.use_exposure {
-			if self.exposure_info.bias > 0.0 { self.exposure_info.bias } else { 0.0 }
-		} else {
-			0.0
-		};
-		self.asciifier.set_bias(bias);  
 	}
 	
 	pub fn set_matrix_size(&mut self, matrix_w: usize, matrix_h: usize) {
-	    self.matrix = Matrix::new(matrix_w, matrix_h);
+	    self.fractal_matrix = Matrix::new(matrix_w, matrix_h);
+	    self.index_matrix = Matrix::new(matrix_w, matrix_h);
 	    self.force_calc = true;
 	}
 	
@@ -245,6 +273,18 @@ impl View {
 		self.max_val = max_val;
 		self.exposure_util.set_max_val(max_val as usize);
 		self.specs.max_val = max_val;
+	}
+
+	pub fn anim_to_home(&mut self) {
+		self.stop_coord_anim();
+		self.position_animator().set_anim( 
+				Anim::Target { target: Vector2f { x: 0.0, y: 0.0 }, coefficient: constants::TARGET_COEF, epsilon: None });					
+		let dw = self.specs.default_width;
+		self.width_animator().set_anim( Anim::Target { 
+				target: dw, coefficient: constants::TARGET_COEF, epsilon: None } );
+		self.rotation_animator().value = math::normalize_theta(self.rotation_animator().value);   
+		self.rotation_animator().set_anim( 
+				Anim::Target { target: 0.0, coefficient: constants::TARGET_COEF, epsilon: None } );
 	}
 
 	pub fn start_coord_anim(&mut self, index: usize) -> bool {
@@ -279,12 +319,12 @@ impl View {
 		self.coord_anim_index = index;
 
 		self.position_animator().set_anim( Anim::Target {
-				target: Vector2f { x: 0.0, y: 0.0 }, coefficient: app::TARGET_COEF * 0.4, epsilon: None } );  
+				target: Vector2f { x: 0.0, y: 0.0 }, coefficient: constants::TARGET_COEF * 0.4, epsilon: None } );  
 		// ... will only get part-way to target position before 'phase 2' starts					
 		
 		let dw = self.specs.default_width;
 		self.width_animator.set_anim( Anim::Target { 
-				target: dw, coefficient: app::TARGET_COEF * 1.5, epsilon: Some(0.003) } );
+				target: dw, coefficient: constants::TARGET_COEF * 1.5, epsilon: Some(0.003) } );
 		// TODO: make exposure anim coef larger since the tween is fast, and then restore it afterwards
 	}
 	
@@ -293,10 +333,10 @@ impl View {
 		let poi = self.mandel_coords.get(self.coord_anim_index);
 		self.position_animator().set_anim( Anim::Target {
 				target: Vector2f { x: poi.0, y: poi.1 }, 
-				coefficient: app::TARGET_COEF * 0.55, epsilon: None } );					
+				coefficient: constants::TARGET_COEF * 0.55, epsilon: None } );					
 		let target_w = 1.0 / (poi.2 / self.specs.default_width);
 		self.width_animator().set_anim( Anim::Target { 
-				target: target_w, coefficient: app::TARGET_COEF * 0.5, epsilon: None } );  // important: no epsilon
+				target: target_w, coefficient: constants::TARGET_COEF * 0.5, epsilon: None } );  // important: no epsilon
 	}
 	
 	/**
@@ -312,7 +352,7 @@ impl View {
 		
 		let target = self.julia_coords.get(index);
 		let target2 = Vector2f { x: target.re, y: target.im };  // convert for Animator
-		let anim = Anim::Target { target: target2, coefficient: app::TARGET_COEF * 1.0, epsilon: None };   
+		let anim = Anim::Target { target: target2, coefficient: constants::TARGET_COEF * 1.0, epsilon: None };   
 		self.julia_coord_animator.set_anim(anim);  
 	}
 	
@@ -327,8 +367,8 @@ impl View {
 	pub fn toggle_use_exposure(&mut self) {
 		self.use_exposure = ! self.use_exposure;
 		if self.use_exposure {
-			self.exposure_floor_animator.set_target(0.0);
-			self.exposure_ceil_animator.set_target(self.max_val as f64);
+			let a = self.max_val as f64;
+			self.set_exposure_anim_targets(0.0, a);
 		}
 	}
 	
@@ -344,6 +384,13 @@ impl View {
 	}
 	pub fn rotation_animator(&mut self) -> &mut Animator<f64> {
 		&mut self.rotation_animator
+	}
+	
+	fn set_exposure_anim_targets(&mut self, floor: f64, ceil: f64) {
+		let a = Anim::Target { target: floor as f64, coefficient: 0.12, epsilon: Some(0.5) };
+		self.exposure_floor_animator.set_anim(a);
+		let a = Anim::Target { target: ceil as f64, coefficient: 0.12, epsilon: Some(0.5) };
+		self.exposure_ceil_animator.set_anim(a);
 	}
 }
 

@@ -1,6 +1,7 @@
 use std::fmt;
 use math;
 
+
 /**
  * Wrapper for a 2D matrix of values
  *
@@ -83,23 +84,44 @@ impl<T: fmt::Display> fmt::Debug for Matrix<T>  {
     }
 }
 
-impl Matrix<u16> {  //z is there a trait to use which covers any integral+float?
+impl Matrix<u8> {  
+
+	 // TODO: want to use num::integer::Integer, but that won't cast to f64 (?)
 
 	/** 
 	 * Interpolates between `m1` and `m2` using `ratio`, writing the result into `dest`
 	 */ 
-	pub fn interpolate(ratio: f64, m1: &Matrix<u16>, max1: u16, m2: &Matrix<u16>, max2: u16, dest: &mut Matrix<u16>) {
+	pub fn interpolate(ratio: f64, m1: &Matrix<u8>, m2: &Matrix<u8>, dest: &mut Matrix<u8>) {
 
 		assert!(m1.width() == m2.width() && m2.width() == dest.width() && 
 				m1.height() == m2.height() && m2.height() == dest.height(), 
-				"Matricies must have same size");
+				"Matrices must have same size");
+
+		for y in 0..m1.height() {
+			for x in 0..m1.width() {
+				 let r1 = m1.get(x, y);
+				 let r2 = m2.get(x, y);
+				 let r3 = r1 as f64  +  (r2 as f64 - r1 as f64) * ratio;
+				 dest.set(x, y, r3 as u8);  
+			}
+		}
+	}
+
+	/** 
+	 * Additionally uses max value info
+	 */ 
+	pub fn interpolate2(ratio: f64, m1: &Matrix<u8>, max1: u8, m2: &Matrix<u8>, max2: u8, dest: &mut Matrix<u8>) {
+
+		assert!(m1.width() == m2.width() && m2.width() == dest.width() && 
+				m1.height() == m2.height() && m2.height() == dest.height(), 
+				"Matrices must have same size");
 
 		for y in 0..m1.height() {
 			for x in 0..m1.width() {
 				 let r1 = m1.get(x, y) as f64 / max1 as f64;
 				 let r2 = m2.get(x, y) as f64 / max2 as f64;
 				 let r3 = r1 + (r2 - r1) * ratio;
-				 let res = (r3 * max2 as f64) as u16;
+				 let res = (r3 * max2 as f64) as u8;
 				 dest.set(x, y, res);  
 			}
 		}
