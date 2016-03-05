@@ -1,5 +1,10 @@
 use std;
 
+// a given terminal may not (probably won't) show every frame @ 60fps, but
+pub const TARGET_FPS: i32 = 60;   
+
+// rough estimate of terminal character a/r, which we can't rly know
+pub const CHARACTER_ASPECT_RATIO: f64 = 0.4;
 
 pub static MANDELBROT_POI_TEXT: &'static str = include_str!("res/mandelbrot_pois.txt");
 pub static JULIA_COMPLEX_TEXT: &'static str = include_str!("res/julia_complex.txt");

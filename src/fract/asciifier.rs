@@ -1,17 +1,16 @@
-use std::cmp::{max, min};
-use math;
-use matrix::Matrix;
+use std::cmp::{min, max};
+use leelib::math;
+use leelib::matrix::Matrix;
 
-// simple version
-// const DEFAULT_CHARS: &'static str = " .,:;i1tfLCG08@";
+
+pub const CHARSET1: &'static str = " .,:;i1tfLCG08@";
 
 // calibrated vaguely for Monaco 12
-const DEFAULT_CHARS: &'static str = " .,`'\"^:;-~=+*ixcnaeomlfh1IEUOQWX%#$&@";
+pub const CHARSET2: &'static str = " .,`'\"^:;-~=+*ixcnaeomlfh1IEUOQWX%#$&@";
  
 
 /**
  * 'Asciifies' values into chars.
- * (isn't limited to ascii charset, of course)
  */
 pub struct Asciifier {
     chars: Vec<char>,  // a collection of characters that are ordered by visual 'character weight'
@@ -26,7 +25,7 @@ pub struct Asciifier {
 impl Asciifier {
     pub fn new(floor: f64, ceil: f64) -> Asciifier {
         let mut ascii = Asciifier {
-            chars: DEFAULT_CHARS.chars().collect(),
+            chars: CHARSET2.chars().collect(),
             floor: floor,
             ceil: ceil,
             bias: 0.0,
@@ -38,17 +37,49 @@ impl Asciifier {
         ascii
     }
 
-	pub fn write_index_matrix(&self, fractal_matrix: &Matrix<u16>, index_matrix: &mut Matrix<u8>) {
-		assert!(fractal_matrix.width() == index_matrix.width() && fractal_matrix.height() == index_matrix.height()); 
-		for y in 0..fractal_matrix.height() {
-			for x in 0..fractal_matrix.width() {
-				let val =  fractal_matrix.get(x, y);
-				let i = self.to_char_index(val as f64);
-				index_matrix.set(x, y, i);
-			}
-		}
+	pub fn chars(&self) -> &Vec<char> {
+		&self.chars
 	}
-	
+
+    pub fn set_chars(&mut self, charset: &String) {
+        self.chars = charset.chars().collect();
+        self.update();
+    }
+
+	pub fn floor(&self) -> f64 {
+		self.floor
+	}
+
+	pub fn ceil(&self) -> f64 {
+		self.ceil
+	}
+
+	/**
+	 * Typical use would be to set floor to 0  
+	 * and set ceil to whatever the max value is of the data set
+	 */
+    pub fn set_floor_ceil(&mut self, floor: f64, ceil: f64) {
+        self.floor = floor;
+        self.ceil = ceil;
+        self.update();
+    }
+    
+	/**
+	 * Given a char set, a ceiling value and a floor value,
+	 * cache range and step values
+	 */ 
+    fn update(&mut self) {
+    	self.range = self.ceil - self.floor;
+        self.step = 1.0 / self.chars.len() as f64;
+    }
+
+    pub fn bias(&self) -> f64 {
+    	self.bias
+    }
+    pub fn set_bias(&mut self, bias: f64) {
+    	self.bias = bias;
+    }
+
 	pub fn write_textbuffer_with_transform(&self, fractal_matrix: &Matrix<u16>, text_buffer: &mut Matrix<char>) {
 		let w = min(text_buffer.width(), fractal_matrix.width());
 		let h = min(text_buffer.height(), fractal_matrix.height());
@@ -71,36 +102,6 @@ impl Asciifier {
 			}
 		}		
 	}
-
-    pub fn set_chars(&mut self, charset: &String) {
-        self.chars = charset.chars().collect();
-        self.update();
-    }
-
-	pub fn floor(&self) -> f64 {
-		self.floor
-	}
-
-	pub fn ceil(&self) -> f64 {
-		self.ceil
-	}
-
-	/**
-	 * Typical use would be to set floor to 0  
-	 * and set ceil to whatever the max value is of the data set
-	 */
-    pub fn set_range(&mut self, floor: f64, ceil: f64) {
-        self.floor = floor;
-        self.ceil = ceil;
-        self.update();
-    }
-    
-    pub fn bias(&self) -> f64 {
-    	self.bias
-    }
-    pub fn set_bias(&mut self, bias: f64) {
-    	self.bias = bias;
-    }
 
     pub fn to_char_index(&self, mut value: f64) -> u8 {
 
@@ -132,14 +133,5 @@ impl Asciifier {
     pub fn to_char(&self, value: f64) -> char {
 		let i = self.to_char_index(value);
 		self.chars[i as usize]
-    }
-    
-	/**
-	 * Given a char set, a ceiling value and a floor value,
-	 * cache range and step values
-	 */ 
-    fn update(&mut self) {
-    	self.range = self.ceil - self.floor;
-        self.step = 1.0 / self.chars.len() as f64;
     }
 }

@@ -4,10 +4,10 @@ extern crate num_cpus;
 use std::thread;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc;
-use vector2::Vector2f;
-use matrix::Matrix;
 use self::num::complex::{Complex, Complex64};
 use self::num::traits::Float;
+use leelib::vector2::Vector2f;
+use leelib::matrix::Matrix;
 
 
 const DEFAULT_MANDELBROT_WIDTH: f64 = 4.0;
@@ -20,7 +20,7 @@ const DEFAULT_JULIA_WIDTH: f64 = 4.0;
 #[derive(Clone, Copy)]
 pub enum FractalType {
 	Mandelbrot, 
-	Julia { c: Complex64 }
+	Julia(Complex64)
 }
 
 
@@ -53,7 +53,7 @@ impl FractalSpecs {
 	
 	pub fn new_julia(c: Complex64, element_ar: f64) -> Self {
 		FractalSpecs {
-			fractal_type: FractalType::Julia { c: c },
+			fractal_type: FractalType::Julia(c),
 
 			max_val: 500,
 			default_width: DEFAULT_JULIA_WIDTH,
@@ -67,11 +67,10 @@ impl FractalSpecs {
 
 
 /**
- * 'static' class with logic for filling in a 'matrix' with calculated fractal values
+ * 'Static' class
+ * Fills in a `Matrix` with calculated fractal values
  */ 
-pub struct FractalCalc {
-	fpo: bool
-}
+pub struct FractalCalc;
 
 impl FractalCalc {
 
@@ -220,9 +219,7 @@ impl FractalCalc {
 		// ersatz-dynamic dispatch (tried other refactoring routes which didn't work out :( )
 		match specs.fractal_type {
 			FractalType::Mandelbrot => FractalCalc::get_mandelbrot_value(x, y, specs.max_val),
-			FractalType::Julia { c } => {
-				FractalCalc::get_julia_value(&c, x, y, specs.max_val)
-			}
+			FractalType::Julia(c) => FractalCalc::get_julia_value(&c, x, y, specs.max_val),
 		}
 	}
 

@@ -6,6 +6,5 @@ authors = ["Lee Felarca <lee@felar.ca>"]
 [dependencies]
 num = "0.1.30"
 time = "0.1"
-rand = "*"
 rustbox = "0.8.1"
 num_cpus = "0.2"

@@ -1,5 +1,5 @@
-use matrix::Matrix;
-use math;
+use leelib::math;
+use leelib::matrix::Matrix;
 
 
 pub struct ExposureInfo {
@@ -10,24 +10,13 @@ pub struct ExposureInfo {
 
 
 /**
- * Experiment - finds the 'meaningful' range of values in a matrix, along with a 'bias' value 
- * Has no state, aside from keeping 'bins' vec for re-use
+ * 'Static' class
+ * Finds the 'meaningful' range of values in a matrix, along with a 'bias' value.
+ * Experiment.
  */ 
-pub struct ExposureUtil {
-	histogram: Vec<u16>  	
-}
+pub struct ExposureUtil;
 
 impl ExposureUtil {
-	
-	pub fn new(max_val: usize) -> ExposureUtil {
-		let mut exp = ExposureUtil { histogram: vec!(u16::default(); 1) };
-		exp.set_max_val(max_val);
-		exp
-	}
-	
-	pub fn set_max_val(&mut self, max_val: usize) {
-		self.histogram = vec!(u16::default(); max_val + 1);
-	}
 	
 	/**
 	 * max_val - the max value of anything in the matrix; used to create 'histogram'
@@ -35,36 +24,30 @@ impl ExposureUtil {
 	 * 
 	 * returns the range where values occur, and the 'center of gravity' ratio (-1 to +1) within that range  
 	 */ 
-	pub fn calc(&mut self, matrix: &Matrix<u16>, lower_thresh_ratio: f64, upper_thresh_ratio: f64) -> ExposureInfo {
-		self.count(&matrix);		
-		let range = self.get_range(&matrix, lower_thresh_ratio, upper_thresh_ratio);
-		let cog = self.calc_bias(range.0, range.1);
-		ExposureInfo { floor: range.0, ceil: range.1, bias: cog }
+	pub fn calc(matrix: &Matrix<u16>, max_val: u16, lower_thresh_ratio: f64, upper_thresh_ratio: f64) -> ExposureInfo {
+
+		// count the values in `matrix`
+		let mut histogram = vec!(0u16; (max_val + 1) as usize);
+		for val in matrix {
+			histogram[val as usize] += 1;
+		}
+
+		let range = ExposureUtil::get_range(&histogram, &matrix, lower_thresh_ratio, upper_thresh_ratio);
+		let bias = ExposureUtil::calc_bias(&histogram, range.0, range.1);
+		ExposureInfo { floor: range.0, ceil: range.1, bias: bias }
 	}
 	
 	/**
-	 * count the number of values per 'bin'
-	 */
-	fn count(&mut self, matrix: &Matrix<u16>) {
-		for i in 0..(self.histogram.len()) {
-			self.histogram[i] = 0;
-		}
-		for val in matrix {
-			self.histogram[val as usize] += 1;
-		}
-	}
-
-	/**
-	 * finds the range where values occur, 
+	 * Finds the range where values occur, 
 	 * discounting the extreme values as described by lower/upper_thresh_ratio
 	 */ 	
-	fn get_range(&mut self, matrix: &Matrix<u16>, lower_thresh_ratio: f64, upper_thresh_ratio: f64) -> (usize, usize) {
+	fn get_range(histogram: &Vec<u16>, matrix: &Matrix<u16>, lower_thresh_ratio: f64, upper_thresh_ratio: f64) -> (usize, usize) {
 
 		let sum_thresh =  (matrix.width() as f64 * matrix.height() as f64) * lower_thresh_ratio;
 		let mut lower_index = 0;
 		let mut sum = 0;
-		for i in 0..self.histogram.len() {
-			sum += self.histogram[i];
+		for i in 0..histogram.len() {
+			sum += histogram[i];
 			if sum as f64 > sum_thresh {
 				lower_index =  if i <= 1 { 
 					0 as usize 
@@ -78,11 +61,11 @@ impl ExposureUtil {
 		let sum_thresh =  (matrix.width() as f64 * matrix.height() as f64) * upper_thresh_ratio;
 		let mut upper_index = 0;		
 		let mut sum = 0;
-		for i in (0..self.histogram.len()).rev() {
-			sum += self.histogram[i];
+		for i in (0..histogram.len()).rev() {
+			sum += histogram[i];
 			if sum as f64 > sum_thresh {
-				upper_index =  if i == self.histogram.len() - 1 { 
-					self.histogram.len() - 1 
+				upper_index =  if i == histogram.len() - 1 { 
+					histogram.len() - 1 
 				} else if i <= 1 { 
 					0 
 				} else { 
@@ -98,13 +81,13 @@ impl ExposureUtil {
 	/**
 	 * Returns a value in range (-1, +1) 
 	 */
-	fn calc_bias(&mut self, lower: usize, upper: usize) -> f64 {
+	fn calc_bias(histogram: &Vec<u16>, lower: usize, upper: usize) -> f64 {
 
 		if lower == upper {
 			return 0.0;
 		}
 		if upper == lower + 1 {
-			return if self.histogram[lower] < self.histogram[upper] {
+			return if histogram[lower] < histogram[upper] {
 				return -1.0;
 			} else {
 				return 1.0;
@@ -114,7 +97,7 @@ impl ExposureUtil {
 		// get sum of all values
 		let mut sum = 0u64;
 		for i in lower..(upper + 1) {
-			sum += self.histogram[i] as u64;
+			sum += histogram[i] as u64;
 		}
 		
 		// find index at the 16%, 50%, 84%
@@ -122,7 +105,7 @@ impl ExposureUtil {
 		let thresh = sum as f64 * (0.5 - 0.34);
 		let mut s = 0;
 		for i in lower..(upper + 1) {
-			s += self.histogram[i] as u64;
+			s += histogram[i] as u64;
 			if s as f64 > thresh {
 				// is like 16th percentile; 1 standard deviation
 				i_a = i;  
@@ -133,7 +116,7 @@ impl ExposureUtil {
 		let thresh = sum as f64 * 0.5;
 		let mut s = 0;
 		for i in lower..(upper + 1) {
-			s += self.histogram[i] as u64;
+			s += histogram[i] as u64;
 			if s as f64 > thresh {
 				// think 'center of gravity'
 				i_b = i;  
@@ -144,7 +127,7 @@ impl ExposureUtil {
 		let thresh = sum as f64 * (0.5 + 0.34);
 		let mut s = 0;
 		for i in lower..(upper + 1) {
-			s += self.histogram[i] as u64;
+			s += histogram[i] as u64;
 			if s as f64 > thresh {
 				// is like 84th percentile
 				i_c = i;  

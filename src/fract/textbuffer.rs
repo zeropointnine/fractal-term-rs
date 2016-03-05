@@ -1,9 +1,7 @@
 extern crate num; 
-use std::cmp::{max, min};
-use ansi;
-use matrix::Matrix;
-use vector2::Vector2f;
-use asciifier::Asciifier;
+use leelib::ansi;
+use leelib::matrix::Matrix;
+use leelib::vector2::Vector2f;
 use self::num::complex::{Complex64};
 
 

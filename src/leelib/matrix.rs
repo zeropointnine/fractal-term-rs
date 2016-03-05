@@ -1,12 +1,8 @@
 use std::fmt;
-use math;
 
 
 /**
  * Wrapper for a 2D matrix of values
- *
- * Was useful writing as a learning experience, but...
- * TODO: see if there's a robust crate lib for this sort of thing
  */
 #[derive(Clone)]
 pub struct Matrix<T> {
@@ -30,7 +26,8 @@ impl<T:Clone + Default> Matrix<T> {
 		Matrix { vec: vec, index:0 }
 	}
 
-	// rem, the first dimension is the row index (y), the second dimension is the column index (x)
+	// rem, the first dimension is the row index (y), 
+	// the second dimension is the column index (x)
 	pub fn vec(&mut self) -> &mut Vec<Vec<T>> {
 		&mut self.vec
 	}
@@ -129,8 +126,7 @@ impl Matrix<u8> {
 }
 
 
-
-// Iterability
+// IntoIterator
 
 pub struct MatrixIntoIterator<'a, T: 'a> {
     matrix: &'a Matrix<T>,
@@ -158,33 +154,3 @@ impl<'a, T: Clone + Default> Iterator for MatrixIntoIterator<'a, T> {
         }
     }
 }
-
-//
-
-struct MatrixIterator<'a, T: 'a> {
-    matrix: &'a Matrix<T>,
-    index: usize,
-}
-
-//impl<'a, T: Clone + Default> Iterator for &'a Matrix<T> {
-//    type Item = T;
-//    type Iter = MatrixIterator<'a, T>;
-//    fn iter(self) -> Self::Iter {
-//        MatrixIterator { matrix: self, index: 0 }
-//    }
-//}
-
-//impl<T> Iterator for Matrix<T> {
-//    type Item = T;
-//    fn next(&mut self) -> Option<T> {
-//        
-//        let y = self.index / self.width();
-//        let x = self.index % self.width();
-//        self.index += 1;
-//        if y >= self.height() {
-//        	None
-//        } else {
-//			Some(self.get(x, y))
-//        }
-//    }
-//}

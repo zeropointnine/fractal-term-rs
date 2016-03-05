@@ -1,19 +1,14 @@
-extern crate rustbox;
 extern crate num; 
-use constants;
-use vector2::Vector2f;
-use animator::{Anim, Animator};
-use input::Command;
-use textbuffer::TextBuffer;
-use view::{View, Views};
-use fractalcalc::{FractalSpecs, FractalType};
-use coords::Coords;
-use matrix::Matrix;
 use self::num::complex::{Complex64};
-
-
-// rough estimate of terminal character a/r, which we can't rly know
-pub const CHARACTER_ASPECT_RATIO: f64 = 0.4;
+use leelib::vector2::Vector2f;
+use leelib::matrix::Matrix;
+use leelib::animator::{Anim, Animator};
+use fract::constants;
+use fract::TextBuffer;
+use fract::CoordList;
+use fract::input::Command;
+use fract::view::{View, MandelView, JuliaView, Views};
+use fract::fractalcalc::{FractalSpecs, FractalType};
 
 
 pub struct App<'a> {
@@ -64,16 +59,13 @@ impl<'a> App<'a> {
 		};
 		
 		// add the views to app
-		let m1 = View::new(view_width, view_height, FractalSpecs::new_mandelbrot_with_defaults(CHARACTER_ASPECT_RATIO));
-		app.views.vec.push(Box::new(m1));
+		let v1 = MandelView::new(view_width, view_height, FractalSpecs::new_mandelbrot_with_defaults(constants::CHARACTER_ASPECT_RATIO));
+		app.views.vec.push(Box::new(v1));
 
-		let default_julia_coord;
-		{
-			let julia_coords = Coords::<Complex64>::new(constants::JULIA_COMPLEX_TEXT);
-			default_julia_coord = julia_coords.get(1).clone();
-		}
-		let m2 = View::new(view_width, view_height, FractalSpecs::new_julia(default_julia_coord, CHARACTER_ASPECT_RATIO));
-		app.views.vec.push(Box::new(m2));
+		let julia_coordlist = CoordList::<Complex64>::new(constants::JULIA_COMPLEX_TEXT);
+		let default_julia_coord = julia_coordlist.get(1).clone();
+		let v2 = JuliaView::new(view_width, view_height, FractalSpecs::new_julia(default_julia_coord, constants::CHARACTER_ASPECT_RATIO));
+		app.views.vec.push(Box::new(v2));
 		
 		app.views.index = 0;
 
@@ -82,22 +74,22 @@ impl<'a> App<'a> {
 	    // ... note, set_size() must be called after instantiation, with the real terminal dimensions
     }
 
-//	fn view(&mut self) -> &mut View {
-//		&mut self.views.get()  // wow!
-//	}
+	//	fn view(&mut self) -> &mut View {
+	//		&mut self.views.get()  // wow!
+	//	}
 	
 	pub fn handle_command(&mut self, command: &Command) {
 
 		let vel_increment = self.views.get().width_animator().value as f64 * constants::VELOCITY_RATIO_INCREMENT;  // abstract this
 
 		// coord anim, start and stop
-		match self.views.get().specs.fractal_type {
+		match self.views.get().specs().fractal_type {
 			FractalType::Mandelbrot => {
 				match *command {
 					Command::Coord(index) => {
 						let b = self.views.get().start_coord_anim(index);
 						if b {
-							self.show_feedback(format!("Starting Mandelbrot zoom {}", index).to_string());
+							self.show_feedback(format!("Starting Mandelbrot zoom {}", (index + 1)).to_string());
 						}
 					},
 					Command::RotationalVelocity(_) | Command::AutoExposure | Command::Help | Command::Size(..) => {} 
@@ -107,12 +99,12 @@ impl<'a> App<'a> {
 					}
 				}
 			},
-			FractalType::Julia {..} => {
+			FractalType::Julia(..) => {
 				match *command {
 					Command::Coord(index) => {
 						let b = self.views.get().start_coord_anim(index);
 						if b {
-							self.show_feedback(format!("Morphing to Julia set {}", index).to_string());
+							self.show_feedback(format!("Morphing to Julia set {}", (index + 1)).to_string());
 						}
 					},
 					Command::Reset | Command::Stop | Command::ChangeFractalSet => {
@@ -145,7 +137,7 @@ impl<'a> App<'a> {
 				
 				// y requires extra logic:
 				let ar = self.view_width as f64 / self.view_height as f64;
-				let viewport_height = self.views.get().width_animator().value * (1.0 / ar)  *  (1.0 / self.views.get().element_aspect_ratio());
+				let viewport_height = self.views.get().width_animator().value * (1.0 / ar)  *  (1.0 / self.views.get().specs().element_ar);
 				let screen_center_y = self.view_height as f64 / 2.0;
 				let screen_offset_ratio_y = (char_row as f64 - screen_center_y) / screen_center_y;
 
@@ -195,7 +187,7 @@ impl<'a> App<'a> {
 			Command::AutoExposure => { 
 				self.views.get().toggle_use_exposure();
 				
-				let s = if self.views.get().use_exposure {
+				let s = if self.views.get().use_exposure() {
 					"[E] Auto-exposure on" 
 				} else {
 					"[E] Auto-exposure off"
@@ -227,9 +219,9 @@ impl<'a> App<'a> {
 				self.interview_animator.set_anim(
 						Anim::Velocity { velocity: 1.0/20.0, friction: 1.0, epsilon: None });
 				
-				let s = match self.views.get().specs.fractal_type {
-					FractalType::Mandelbrot => "[F] Fractal set: Mandelbrot",
-					FractalType::Julia { .. } => "[F] Fractal set: Julia",
+				let s = match self.views.get().specs().fractal_type {
+					FractalType::Mandelbrot => "[F] Fractal type: Mandelbrot",
+					FractalType::Julia(..) => "[F] Fractal type: Julia",
 				};
 				self.show_feedback(s.to_string()); 
 				
@@ -267,17 +259,17 @@ impl<'a> App<'a> {
 		let should_crossfade = match self.interview_animator.anim() { &Anim::None => false, _ => true };
 		if should_crossfade {
 			Matrix::interpolate(self.interview_animator.value,
-					&self.views.get_num_im(self.interview_last_index).index_matrix, 
-					&self.views.get_im().index_matrix, 
+					&self.views.get_num_im(self.interview_last_index).index_matrix(), 
+					&self.views.get_im().index_matrix(), 
 					&mut self.interview_matrix);
-       		self.views.get_im().asciifier.write_textbuffer(&self.interview_matrix, &mut self.text_buffer.buffer);
+       		self.views.get_im().asciifier().write_textbuffer(&self.interview_matrix, &mut self.text_buffer.buffer);
 		} else {
-       		self.views.get_im().asciifier.write_textbuffer(&self.views.get_im().index_matrix, &mut self.text_buffer.buffer);
+       		self.views.get_im().asciifier().write_textbuffer(&self.views.get_im().index_matrix(), &mut self.text_buffer.buffer);
 		}
 
         if constants::SHOW_DEBUG_TEXT {
 	        self.text_buffer.draw_string(&debug_info, 1, 1);
-	        self.text_buffer.draw_string(&self.views.get().debug, 1,2);
+	        self.text_buffer.draw_string(&self.views.get_im().debug(), 1,2);
         }
 
         if self.count % 60 < 10 {  // show center-point
@@ -288,9 +280,9 @@ impl<'a> App<'a> {
         
         if self.help_anim.value <= 1.0 {
         	let z = self.get_zoom();
-        	let c = match self.views.get().specs.fractal_type {  
+        	let c = match self.views.get().specs().fractal_type {  
         		FractalType::Mandelbrot => None,
-        		FractalType::Julia {c} => Some(c),
+        		FractalType::Julia(c) => Some(c),
         	};
         	self.text_buffer.draw_help_dialog(self.help_anim.value, &self.views.get().position_animator().value, z,  c);
         }
@@ -327,7 +319,7 @@ impl<'a> App<'a> {
 	
 	fn get_zoom(&mut self) -> f64 {
 		let w2 = self.views.get().width_animator().value;
-		let w1 = self.views.get().specs.default_width;
+		let w1 = self.views.get().specs().default_width;
 		w1 / w2
 	}
 

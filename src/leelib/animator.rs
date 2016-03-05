@@ -1,5 +1,5 @@
 use std::ops::{Add, Mul};
-use vector2::Vector2f;
+use leelib::vector2::Vector2f;
 
 
 /**
